@@ -13,6 +13,7 @@ import { FAQSection } from './components/sections/FAQSection'
 import { FinalCTASection } from './components/sections/FinalCTASection'
 import { SignupSection } from './components/sections/SignupSection'
 import { KeywordDashboard } from './pages/KeywordDashboard'
+import { ProductsDashboard } from './pages/ProductsDashboard'
 
 function LandingPage() {
   return (
@@ -42,6 +43,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/dashboard/keywords" element={<KeywordDashboard />} />
+        <Route path="/dashboard/products" element={<ProductsDashboard />} />
       </Routes>
     </BrowserRouter>
   )

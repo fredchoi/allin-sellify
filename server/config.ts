@@ -11,6 +11,11 @@ const configSchema = z.object({
   NAVER_AD_CUSTOMER_ID: z.string().optional(),
   NAVER_DATALAB_CLIENT_ID: z.string().optional(),
   NAVER_DATALAB_CLIENT_SECRET: z.string().optional(),
+  // Module 02: 도매/AI 설정
+  WHOLESALE_ADAPTER: z.enum(['domeggook', 'mock']).default('mock'),
+  DOMEGGOOK_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  UPLOAD_DIR: z.string().default('./uploads'),
 })
 
 const parsed = configSchema.safeParse(process.env)

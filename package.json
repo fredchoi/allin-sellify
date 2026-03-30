@@ -31,6 +31,7 @@
     "react-is": "^19.2.4",
     "react-router-dom": "^7.13.2",
     "recharts": "^3.8.1",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^3.5.0",
     "zod": "^3.24.2"
   },
