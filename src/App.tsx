@@ -1,0 +1,48 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { Navbar } from './components/layout/Navbar'
+import { Footer } from './components/layout/Footer'
+import { HeroSection } from './components/sections/HeroSection'
+import { PainPointsSection } from './components/sections/PainPointsSection'
+import { PipelineSection } from './components/sections/PipelineSection'
+import { FeaturesSection } from './components/sections/FeaturesSection'
+import { MetricsSection } from './components/sections/MetricsSection'
+import { BeforeAfterSection } from './components/sections/BeforeAfterSection'
+import { PricingSection } from './components/sections/PricingSection'
+import { TestimonialsSection } from './components/sections/TestimonialsSection'
+import { FAQSection } from './components/sections/FAQSection'
+import { FinalCTASection } from './components/sections/FinalCTASection'
+import { KeywordDashboard } from './pages/KeywordDashboard'
+
+function LandingPage() {
+  return (
+    <>
+      <Navbar />
+      <main>
+        <HeroSection />
+        <PainPointsSection />
+        <PipelineSection />
+        <FeaturesSection />
+        <MetricsSection />
+        <BeforeAfterSection />
+        <PricingSection />
+        <TestimonialsSection />
+        <FAQSection />
+        <FinalCTASection />
+      </main>
+      <Footer />
+    </>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/dashboard/keywords" element={<KeywordDashboard />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
+export default App

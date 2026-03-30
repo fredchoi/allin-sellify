@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 188 40" width="188" height="40" role="img" aria-label="Sellify 로고 (어두운 배경용)">
+  <!-- 아이콘 블록 (오렌지 유지 — 어두운 배경에서도 브랜드 컬러 강조) -->
+  <rect x="0" y="2" width="36" height="36" rx="8" fill="#EA580C"/>
+  <!-- 화이트 S 심볼 -->
+  <path
+    d="M22.5,10 C28.5,10 28.5,20 18,20 C7.5,20 7.5,30 13.5,30"
+    fill="none"
+    stroke="white"
+    stroke-width="2.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <!-- Sellify 워드마크 (화이트 텍스트, 어두운 배경용) -->
+  <text
+    x="44"
+    y="27"
+    font-family="-apple-system, BlinkMacSystemFont, 'Pretendard', 'Inter', 'Helvetica Neue', Arial, sans-serif"
+    font-size="22"
+    font-weight="700"
+    fill="#FFFFFF"
+    letter-spacing="-0.3"
+  >Sellify</text>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Sellify 아이콘">
+  <!-- 오렌지 배경 (rounded square) -->
+  <rect width="48" height="48" rx="10" fill="#EA580C"/>
+  <!-- 화이트 S 심볼: 두 개의 베지어 곡선으로 구성된 흐르는 S 형태 -->
+  <path
+    d="M30,13 C38,13 38,24 24,24 C10,24 10,35 18,35"
+    fill="none"
+    stroke="white"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

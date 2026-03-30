@@ -1,0 +1,56 @@
+import type { PricingTier } from '../types'
+
+export const pricingTiers: PricingTier[] = [
+  {
+    name: '스타터',
+    price: '무료',
+    period: '영구 무료',
+    features: [
+      '상품 등록 10개/월',
+      '판매 채널 1개',
+      'SNS 콘텐츠 5건/월',
+      '팀원 1명',
+    ],
+    cta: '무료 시작',
+    ctaHref: '#signup',
+  },
+  {
+    name: '프로',
+    price: '₩29,400',
+    originalPrice: '₩49,000',
+    period: '월 (첫 3개월)',
+    discount: '40% 할인',
+    highlighted: true,
+    earlyBirdBadge: '⭐ 인기',
+    features: [
+      '상품 등록 300개/월',
+      '판매 채널 3개 (스마트스토어·쿠팡 포함)',
+      'SNS 콘텐츠 무제한',
+      '팀원 1명',
+      '도매 AI 소싱',
+      '멀티채널 자동 등록',
+      '얼리버드 가격 영구 동결',
+    ],
+    cta: '얼리버드 신청 →',
+    ctaHref: '#signup',
+  },
+  {
+    name: '비즈니스',
+    price: '₩89,400',
+    originalPrice: '₩149,000',
+    period: '월 (첫 3개월)',
+    discount: '40% 할인',
+    earlyBirdBadge: '팀 플랜',
+    features: [
+      '상품 등록 무제한',
+      '판매 채널 무제한',
+      'SNS 콘텐츠 무제한',
+      '팀원 5명',
+      '프로 플랜 전체 포함',
+      '전담 온보딩 지원',
+      '얼리버드 가격 영구 동결',
+    ],
+    cta: '팀 플랜 신청',
+    ctaHref: '#signup',
+  },
+]
