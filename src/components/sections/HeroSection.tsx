@@ -41,7 +41,7 @@ export function HeroSection() {
           </p>
 
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Button size="lg" href="#pricing" className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Button size="lg" href="#signup" className="bg-orange-500 hover:bg-orange-600 text-white">
               얼리버드 40% 할인으로 시작하기 →
             </Button>
             <Button variant="secondary" size="lg" onClick={() => setVideoOpen(true)}>

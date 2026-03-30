@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // @ts-expect-error vitest@3 test config not yet typed for vite@8
   test: {
     globals: true,
     environment: 'node',

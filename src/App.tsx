@@ -11,6 +11,7 @@ import { PricingSection } from './components/sections/PricingSection'
 import { TestimonialsSection } from './components/sections/TestimonialsSection'
 import { FAQSection } from './components/sections/FAQSection'
 import { FinalCTASection } from './components/sections/FinalCTASection'
+import { SignupSection } from './components/sections/SignupSection'
 import { KeywordDashboard } from './pages/KeywordDashboard'
 
 function LandingPage() {
@@ -27,6 +28,7 @@ function LandingPage() {
         <PricingSection />
         <TestimonialsSection />
         <FAQSection />
+        <SignupSection />
         <FinalCTASection />
       </main>
       <Footer />

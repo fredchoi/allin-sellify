@@ -4,6 +4,7 @@ import databasePlugin from './plugins/database.js'
 import corsPlugin from './plugins/cors.js'
 import errorHandlerPlugin from './plugins/error-handler.js'
 import { keywordsModule } from './modules/keywords/routes.js'
+import { leadsModule } from './modules/leads/routes.js'
 
 const app = Fastify({
   logger: {
@@ -20,6 +21,7 @@ await app.register(errorHandlerPlugin)
 await app.register(databasePlugin)
 
 await app.register(keywordsModule, { prefix: '/api/keywords' })
+await app.register(leadsModule, { prefix: '/api/leads' })
 
 app.get('/health', async () => ({ status: 'ok' }))
 
