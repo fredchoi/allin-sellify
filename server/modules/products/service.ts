@@ -1,6 +1,7 @@
 import type { Pool } from 'pg'
 import type { FastifyBaseLogger } from 'fastify'
 import { createWholesaleAdapter } from '../../adapters/wholesale-adapter-factory.js'
+import { createMarketplaceAdapter } from '../../adapters/marketplace-adapter-factory.js'
 import {
   processProductWithAi,
   mockProcessProduct,
@@ -215,8 +216,42 @@ export async function updateProcessed(
 
 export async function createListing(
   db: Pool,
-  data: CreateMarketListingInput
+  data: CreateMarketListingInput,
+  log?: FastifyBaseLogger
 ): Promise<string> {
+  // 가공 상품 조회
+  const processed = await repo.getProcessedProductById(db, data.processedProductId)
+
+  // 마켓 어댑터 통해 실제 등록 시도
+  if (processed && data.marketplace !== 'store') {
+    try {
+      const adapter = createMarketplaceAdapter(data.marketplace as 'naver' | 'coupang')
+      const images = Array.isArray(processed.processed_images) ? (processed.processed_images as string[]) : []
+      const result = await adapter.createListing({
+        processedProductId: data.processedProductId,
+        title: processed.title ?? '',
+        price: data.listingPrice ?? processed.selling_price ?? 0,
+        description: processed.description ?? undefined,
+        images,
+        options: [],
+      })
+
+      return repo.createOrUpdateMarketListing(db, {
+        processedProductId: data.processedProductId,
+        marketplace: data.marketplace,
+        marketProductId: result.marketProductId,
+        listingPrice: data.listingPrice,
+        listingData: {
+          ...(data.listingData as Record<string, unknown> | undefined),
+          listingUrl: result.listingUrl,
+          adapterStatus: result.status,
+        },
+      })
+    } catch (err) {
+      log?.error({ err, processedProductId: data.processedProductId }, '마켓 등록 실패, DB만 저장')
+    }
+  }
+
   return repo.createOrUpdateMarketListing(db, {
     processedProductId: data.processedProductId,
     marketplace: data.marketplace,

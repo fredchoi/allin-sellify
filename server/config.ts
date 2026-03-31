@@ -19,6 +19,10 @@ const configSchema = z.object({
   // Phase 0: Redis + BullMQ + Sentry
   REDIS_URL: z.string().default('redis://localhost:6379'),
   SENTRY_DSN: z.string().optional(),
+  // 네이버 스마트스토어 커머스 API
+  NAVER_COMMERCE_CLIENT_ID: z.string().optional(),
+  NAVER_COMMERCE_CLIENT_SECRET: z.string().optional(),
+  MARKETPLACE_ADAPTER_MODE: z.enum(['mock', 'real']).default('mock'),
   // 블로그·SNS 콘텐츠 발행
   SNS_API_MODE: z.enum(['mock', 'real']).default('mock'),
   // Phase 0: JWT 인증

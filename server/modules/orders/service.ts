@@ -1,7 +1,10 @@
 import type { Pool } from 'pg'
 import type { Redis } from 'ioredis'
+import type { FastifyBaseLogger } from 'fastify'
 import { upsertOrderFromMarket } from './repository.js'
 import type { MockCollectOrderRequest } from './schemas.js'
+import { createMarketplaceAdapter } from '../../adapters/marketplace-adapter-factory.js'
+import type { MarketOrder } from '../../adapters/marketplace-adapter.js'
 
 // Redis NX Lock으로 중복 처리 방지
 async function acquireLock(redis: Redis, key: string, ttlSeconds = 60): Promise<boolean> {
@@ -60,5 +63,61 @@ export async function collectMockOrders(
     }
   }
 
+  return { collected, skipped }
+}
+
+// ── 마켓 주문 자동 수집 (MarketplaceAdapter) ───────────────────────────
+
+export async function collectMarketOrders(
+  db: Pool,
+  redis: Redis,
+  sellerId: string,
+  marketplace: 'naver' | 'coupang',
+  since: Date,
+  log: FastifyBaseLogger,
+): Promise<{ collected: number; skipped: number }> {
+  const adapter = createMarketplaceAdapter(marketplace)
+  const orders = await adapter.collectOrders(since)
+  log.info({ marketplace, count: orders.length }, '마켓 주문 수집 완료')
+
+  let collected = 0
+  let skipped = 0
+
+  for (const order of orders) {
+    const lockKey = `order-lock:${marketplace}:${order.marketOrderId}`
+    const acquired = await acquireLock(redis, lockKey)
+    if (!acquired) {
+      skipped++
+      continue
+    }
+
+    try {
+      const { isNew } = await upsertOrderFromMarket(db, {
+        sellerId,
+        marketplace,
+        marketOrderId: order.marketOrderId,
+        buyerName: order.buyerName,
+        buyerPhone: order.buyerPhone,
+        buyerAddress: order.buyerAddress,
+        totalAmount: order.totalAmount,
+        commissionAmount: order.commissionAmount,
+        orderedAt: order.orderedAt,
+        items: order.items.map((item) => ({
+          productName: item.productName,
+          optionName: item.optionName,
+          quantity: item.quantity,
+          sellingPrice: item.sellingPrice,
+          wholesalePrice: 0,
+          commissionRate: item.commissionRate ?? 0.033,
+        })),
+      })
+      if (isNew) collected++
+      else skipped++
+    } finally {
+      await releaseLock(redis, lockKey)
+    }
+  }
+
+  log.info({ marketplace, collected, skipped }, '주문 DB 저장 완료')
   return { collected, skipped }
 }
