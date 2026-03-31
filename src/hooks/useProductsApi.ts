@@ -73,7 +73,7 @@ export function useCollectProducts() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch('/api/products/collect', {
+        const res = await fetch('/api/v1/products/collect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -120,7 +120,7 @@ export function useWholesaleProducts() {
         })
         if (opts.supplyStatus) params.set('supplyStatus', opts.supplyStatus)
 
-        const res = await fetch(`/api/products/wholesale?${params}`)
+        const res = await fetch(`/api/v1/products/wholesale?${params}`)
         if (!res.ok) throw new Error(`조회 실패 (${res.status})`)
         const data = await res.json()
         setProducts(data.products ?? [])
@@ -149,7 +149,7 @@ export function useProcessProduct() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch('/api/products/process', {
+        const res = await fetch('/api/v1/products/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -198,7 +198,7 @@ export function useProcessedProducts() {
         })
         if (opts.processingStatus) params.set('processingStatus', opts.processingStatus)
 
-        const res = await fetch(`/api/products/processed?${params}`)
+        const res = await fetch(`/api/v1/products/processed?${params}`)
         if (!res.ok) throw new Error(`조회 실패 (${res.status})`)
         const data = await res.json()
         setProducts(data.products ?? [])
@@ -227,7 +227,7 @@ export function useProcessedProductDetail() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/products/processed/${id}`)
+      const res = await fetch(`/api/v1/products/processed/${id}`)
       if (!res.ok) throw new Error('상세 조회 실패')
       setProduct(await res.json())
     } catch (e) {
@@ -242,7 +242,7 @@ export function useProcessedProductDetail() {
       id: string,
       data: { title?: string; hookingText?: string; sellingPrice?: number }
     ) => {
-      const res = await fetch(`/api/products/processed/${id}`, {
+      const res = await fetch(`/api/v1/products/processed/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

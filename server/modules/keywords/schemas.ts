@@ -2,11 +2,9 @@ import { z } from 'zod'
 
 export const analyzeRequestSchema = z.object({
   keywords: z.array(z.string().min(1)).min(1).max(5),
-  sellerId: z.string().uuid(),
 })
 
 export const saveKeywordSchema = z.object({
-  sellerId: z.string().uuid(),
   keyword: z.string().min(1),
   searchVolume: z.number().int().min(0),
   competition: z.number().min(0).max(1),
@@ -17,7 +15,6 @@ export const saveKeywordSchema = z.object({
 })
 
 export const listQuerySchema = z.object({
-  sellerId: z.string().uuid(),
   status: z.enum(['active', 'archived', 'monitoring']).optional(),
   sort: z.enum(['opp_score', 'search_volume', 'created_at']).default('opp_score'),
   page: z.coerce.number().int().min(1).default(1),

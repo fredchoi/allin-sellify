@@ -14,6 +14,10 @@ import { FinalCTASection } from './components/sections/FinalCTASection'
 import { SignupSection } from './components/sections/SignupSection'
 import { KeywordDashboard } from './pages/KeywordDashboard'
 import { ProductsDashboard } from './pages/ProductsDashboard'
+import { SettlementsDashboard } from './pages/SettlementsDashboard'
+import { InventoryPage } from './pages/InventoryPage'
+import { OrdersPage } from './pages/OrdersPage'
+import { ContentDashboard } from './pages/ContentDashboard'
 
 function LandingPage() {
   return (
@@ -44,6 +48,10 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/dashboard/keywords" element={<KeywordDashboard />} />
         <Route path="/dashboard/products" element={<ProductsDashboard />} />
+        <Route path="/dashboard/settlements" element={<SettlementsDashboard />} />
+        <Route path="/dashboard/inventory" element={<InventoryPage />} />
+        <Route path="/dashboard/orders" element={<OrdersPage />} />
+        <Route path="/dashboard/content" element={<ContentDashboard />} />
       </Routes>
     </BrowserRouter>
   )

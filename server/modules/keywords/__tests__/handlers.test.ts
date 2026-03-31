@@ -3,6 +3,7 @@ import Fastify from 'fastify'
 import type { FastifyInstance } from 'fastify'
 import { keywordsModule } from '../routes.js'
 import errorHandlerPlugin from '../../../plugins/error-handler.js'
+import type { SellerContext } from '../../../types/seller-context.js'
 
 // ─────────────────────────────────────────────
 // 의존성 모킹
@@ -61,6 +62,16 @@ vi.mock('../repository.js', () => ({
 }))
 
 // ─────────────────────────────────────────────
+// 테스트 셀러 컨텍스트
+// ─────────────────────────────────────────────
+
+const TEST_SELLER: SellerContext = {
+  sellerId: '550e8400-e29b-41d4-a716-446655440000',
+  plan: 'starter',
+  quotas: { dailyProducts: 50, dailyAnalyze: 20 },
+}
+
+// ─────────────────────────────────────────────
 // 테스트 서버 헬퍼
 // ─────────────────────────────────────────────
 
@@ -75,7 +86,12 @@ async function buildTestApp(): Promise<FastifyInstance> {
     end: vi.fn(),
   } as any)
 
-  await app.register(keywordsModule, { prefix: '/api/keywords' })
+  // authenticate mock: seller context를 직접 주입
+  app.decorate('authenticate', async (request: any) => {
+    request.seller = TEST_SELLER
+  })
+
+  await app.register(keywordsModule, { prefix: '/api/v1/keywords' })
   return app
 }
 
@@ -83,7 +99,7 @@ async function buildTestApp(): Promise<FastifyInstance> {
 // REST API 통합 테스트
 // ─────────────────────────────────────────────
 
-describe('POST /api/keywords/analyze', () => {
+describe('POST /api/v1/keywords/analyze', () => {
   let app: FastifyInstance
 
   beforeEach(async () => {
@@ -93,10 +109,9 @@ describe('POST /api/keywords/analyze', () => {
   it('정상 요청에 대해 200과 results 배열을 반환한다', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/keywords/analyze',
+      url: '/api/v1/keywords/analyze',
       payload: {
         keywords: ['무선이어폰'],
-        sellerId: '550e8400-e29b-41d4-a716-446655440000',
       },
     })
 
@@ -113,10 +128,9 @@ describe('POST /api/keywords/analyze', () => {
   it('keywords 배열이 비어있으면 400을 반환한다', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/keywords/analyze',
+      url: '/api/v1/keywords/analyze',
       payload: {
         keywords: [],
-        sellerId: '550e8400-e29b-41d4-a716-446655440000',
       },
     })
     expect(response.statusCode).toBe(400)
@@ -125,33 +139,9 @@ describe('POST /api/keywords/analyze', () => {
   it('keywords가 5개를 초과하면 400을 반환한다', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/keywords/analyze',
+      url: '/api/v1/keywords/analyze',
       payload: {
         keywords: ['A', 'B', 'C', 'D', 'E', 'F'],
-        sellerId: '550e8400-e29b-41d4-a716-446655440000',
-      },
-    })
-    expect(response.statusCode).toBe(400)
-  })
-
-  it('sellerId가 없으면 400을 반환한다', async () => {
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/keywords/analyze',
-      payload: {
-        keywords: ['무선이어폰'],
-      },
-    })
-    expect(response.statusCode).toBe(400)
-  })
-
-  it('sellerId가 UUID 형식이 아니면 400을 반환한다', async () => {
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/keywords/analyze',
-      payload: {
-        keywords: ['무선이어폰'],
-        sellerId: 'not-a-uuid',
       },
     })
     expect(response.statusCode).toBe(400)
@@ -160,10 +150,9 @@ describe('POST /api/keywords/analyze', () => {
   it('빈 문자열 키워드가 포함되면 400을 반환한다', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/keywords/analyze',
+      url: '/api/v1/keywords/analyze',
       payload: {
         keywords: [''],
-        sellerId: '550e8400-e29b-41d4-a716-446655440000',
       },
     })
     expect(response.statusCode).toBe(400)
@@ -172,10 +161,9 @@ describe('POST /api/keywords/analyze', () => {
   it('특수문자 키워드도 정상 처리된다', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/keywords/analyze',
+      url: '/api/v1/keywords/analyze',
       payload: {
         keywords: ['USB-C 케이블 (1m)'],
-        sellerId: '550e8400-e29b-41d4-a716-446655440000',
       },
     })
     // mock이 있으므로 200 반환
@@ -185,13 +173,13 @@ describe('POST /api/keywords/analyze', () => {
   it('요청 body가 없으면 400을 반환한다', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/keywords/analyze',
+      url: '/api/v1/keywords/analyze',
     })
     expect(response.statusCode).toBe(400)
   })
 })
 
-describe('POST /api/keywords', () => {
+describe('POST /api/v1/keywords', () => {
   let app: FastifyInstance
 
   beforeEach(async () => {
@@ -201,9 +189,8 @@ describe('POST /api/keywords', () => {
   it('정상 입력으로 키워드 저장 시 201을 반환한다', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/keywords',
+      url: '/api/v1/keywords',
       payload: {
-        sellerId: '550e8400-e29b-41d4-a716-446655440000',
         keyword: '무선이어폰',
         searchVolume: 85000,
         competition: 0.8,
@@ -218,9 +205,8 @@ describe('POST /api/keywords', () => {
   it('searchVolume이 음수이면 400을 반환한다', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/keywords',
+      url: '/api/v1/keywords',
       payload: {
-        sellerId: '550e8400-e29b-41d4-a716-446655440000',
         keyword: '테스트',
         searchVolume: -1,
         competition: 0.5,
@@ -235,9 +221,8 @@ describe('POST /api/keywords', () => {
   it('competition이 1 초과이면 400을 반환한다', async () => {
     const response = await app.inject({
       method: 'POST',
-      url: '/api/keywords',
+      url: '/api/v1/keywords',
       payload: {
-        sellerId: '550e8400-e29b-41d4-a716-446655440000',
         keyword: '테스트',
         searchVolume: 1000,
         competition: 1.5,
@@ -250,17 +235,17 @@ describe('POST /api/keywords', () => {
   })
 })
 
-describe('GET /api/keywords', () => {
+describe('GET /api/v1/keywords', () => {
   let app: FastifyInstance
 
   beforeEach(async () => {
     app = await buildTestApp()
   })
 
-  it('sellerId 쿼리 파라미터로 목록을 조회한다', async () => {
+  it('목록을 조회한다', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/keywords?sellerId=550e8400-e29b-41d4-a716-446655440000',
+      url: '/api/v1/keywords',
     })
     expect(response.statusCode).toBe(200)
     const body = response.json()
@@ -268,18 +253,10 @@ describe('GET /api/keywords', () => {
     expect(body).toHaveProperty('pagination')
   })
 
-  it('sellerId 없이 요청 시 400을 반환한다', async () => {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/api/keywords',
-    })
-    expect(response.statusCode).toBe(400)
-  })
-
   it('페이지네이션 파라미터가 반영된다', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/keywords?sellerId=550e8400-e29b-41d4-a716-446655440000&page=2&limit=10',
+      url: '/api/v1/keywords?page=2&limit=10',
     })
     expect(response.statusCode).toBe(200)
     const body = response.json()
@@ -288,7 +265,7 @@ describe('GET /api/keywords', () => {
   })
 })
 
-describe('GET /api/keywords/:id', () => {
+describe('GET /api/v1/keywords/:id', () => {
   let app: FastifyInstance
 
   beforeEach(async () => {
@@ -298,13 +275,13 @@ describe('GET /api/keywords/:id', () => {
   it('존재하는 ID로 키워드 상세를 조회한다', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/keywords/test-uuid',
+      url: '/api/v1/keywords/test-uuid',
     })
     expect(response.statusCode).toBe(200)
   })
 })
 
-describe('DELETE /api/keywords/:id', () => {
+describe('DELETE /api/v1/keywords/:id', () => {
   let app: FastifyInstance
 
   beforeEach(async () => {
@@ -314,13 +291,13 @@ describe('DELETE /api/keywords/:id', () => {
   it('키워드 아카이브 시 204를 반환한다', async () => {
     const response = await app.inject({
       method: 'DELETE',
-      url: '/api/keywords/test-uuid',
+      url: '/api/v1/keywords/test-uuid',
     })
     expect(response.statusCode).toBe(204)
   })
 })
 
-describe('GET /api/keywords/:id/trend', () => {
+describe('GET /api/v1/keywords/:id/trend', () => {
   let app: FastifyInstance
 
   beforeEach(async () => {
@@ -330,7 +307,7 @@ describe('GET /api/keywords/:id/trend', () => {
   it('키워드 트렌드 데이터를 반환한다', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/keywords/test-uuid/trend',
+      url: '/api/v1/keywords/test-uuid/trend',
     })
     expect(response.statusCode).toBe(200)
     const body = response.json()

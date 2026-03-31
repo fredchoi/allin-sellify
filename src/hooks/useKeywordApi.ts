@@ -16,7 +16,7 @@ export function useKeywordAnalyze() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/keywords/analyze', {
+      const res = await fetch('/api/v1/keywords/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keywords, sellerId: DEV_SELLER_ID }),
@@ -45,7 +45,7 @@ export function useKeywordSave() {
   const save = useCallback(async (analyzed: AnalyzedKeyword): Promise<Keyword> => {
     setLoading(true)
     try {
-      const res = await fetch('/api/keywords', {
+      const res = await fetch('/api/v1/keywords', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -89,7 +89,7 @@ export function useKeywordList(
         })
         if (status) params.set('status', status)
 
-        const res = await fetch(`/api/keywords?${params}`)
+        const res = await fetch(`/api/v1/keywords?${params}`)
         if (!res.ok) throw new Error(`목록 조회 실패 (${res.status})`)
         const json = await res.json()
         setData(json)
@@ -119,8 +119,8 @@ export function useKeywordDetail(_id: string | null) {
     setError(null)
     try {
       const [kwRes, trendRes] = await Promise.all([
-        fetch(`/api/keywords/${targetId}`),
-        fetch(`/api/keywords/${targetId}/trend`),
+        fetch(`/api/v1/keywords/${targetId}`),
+        fetch(`/api/v1/keywords/${targetId}/trend`),
       ])
       if (!kwRes.ok) throw new Error('키워드 조회 실패')
       const [kw, trendData] = await Promise.all([kwRes.json(), trendRes.json()])
@@ -135,7 +135,7 @@ export function useKeywordDetail(_id: string | null) {
   }, [])
 
   const archive = useCallback(async (targetId: string) => {
-    const res = await fetch(`/api/keywords/${targetId}`, { method: 'DELETE' })
+    const res = await fetch(`/api/v1/keywords/${targetId}`, { method: 'DELETE' })
     if (!res.ok) throw new Error('삭제 실패')
   }, [])
 

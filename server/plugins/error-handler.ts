@@ -30,6 +30,16 @@ async function errorHandlerPlugin(fastify: FastifyInstance) {
       })
     }
 
+    // HTTP 에러 처리 (rate limit 등 statusCode를 포함한 에러)
+    const httpError = error as Error & { statusCode?: number; retryAfter?: string }
+    if (httpError.statusCode === 429) {
+      return reply.status(429).send({
+        error: 'Too Many Requests',
+        message: error.message,
+        retryAfter: httpError.retryAfter,
+      })
+    }
+
     request.log.error({ err: error }, '처리되지 않은 에러')
     return reply.status(500).send({
       error: 'INTERNAL_ERROR',

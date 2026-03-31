@@ -18,7 +18,11 @@ export interface Keyword {
   updated_at: Date
 }
 
-export async function saveKeyword(db: Pool, data: SaveKeywordRequest): Promise<Keyword> {
+export async function saveKeyword(
+  db: Pool,
+  sellerId: string,
+  data: SaveKeywordRequest,
+): Promise<Keyword> {
   const { rows } = await db.query<Keyword>(
     `INSERT INTO keywords
       (seller_id, keyword, search_volume, competition, cgi, trend_score, opp_score, category)
@@ -35,7 +39,7 @@ export async function saveKeyword(db: Pool, data: SaveKeywordRequest): Promise<K
        updated_at = NOW()
      RETURNING *`,
     [
-      data.sellerId,
+      sellerId,
       data.keyword,
       data.searchVolume,
       data.competition,
@@ -50,10 +54,11 @@ export async function saveKeyword(db: Pool, data: SaveKeywordRequest): Promise<K
 
 export async function listKeywords(
   db: Pool,
-  query: ListQuery
+  sellerId: string,
+  query: ListQuery,
 ): Promise<{ keywords: Keyword[]; total: number }> {
   const conditions = ['seller_id = $1']
-  const params: unknown[] = [query.sellerId]
+  const params: unknown[] = [sellerId]
 
   if (query.status) {
     conditions.push(`status = $${params.length + 1}`)

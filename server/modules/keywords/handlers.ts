@@ -23,7 +23,7 @@ export function buildHandlers(fastify: FastifyInstance) {
 
     async list(request: FastifyRequest, reply: FastifyReply) {
       const query = listQuerySchema.parse(request.query)
-      const { keywords, total } = await listKeywords(fastify.db, query)
+      const { keywords, total } = await listKeywords(fastify.db, request.seller.sellerId, query)
       return reply.send({
         keywords,
         pagination: {
@@ -42,7 +42,7 @@ export function buildHandlers(fastify: FastifyInstance) {
 
     async save(request: FastifyRequest, reply: FastifyReply) {
       const body = saveKeywordSchema.parse(request.body)
-      const keyword = await saveKeyword(fastify.db, body)
+      const keyword = await saveKeyword(fastify.db, request.seller.sellerId, body)
       return reply.status(201).send(keyword)
     },
 
