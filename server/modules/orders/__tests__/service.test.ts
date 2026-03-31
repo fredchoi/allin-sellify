@@ -225,8 +225,9 @@ describe('collectMarketOrders', () => {
       isNew: true,
     })
 
+    const mockDb = { query: vi.fn().mockResolvedValue({ rows: [{ price: 12000 }] }) } as any
     const result = await collectMarketOrders(
-      {} as any,
+      mockDb,
       mockRedis,
       'seller-001',
       'naver',
@@ -281,8 +282,9 @@ describe('collectMarketOrders', () => {
       isNew: true,
     })
 
+    const mockDb = { query: vi.fn().mockResolvedValue({ rows: [] }) } as any
     await collectMarketOrders(
-      {} as any,
+      mockDb,
       mockRedis,
       'seller-001',
       'coupang',

@@ -23,19 +23,34 @@ interface TokenCache {
 export class NaverSmartStoreAdapter implements MarketplaceAdapter {
   readonly name = 'naver' as const
   private tokenCache: TokenCache | null = null
+  private tokenRefreshPromise: Promise<string> | null = null
 
   constructor(
     private readonly clientId: string,
     private readonly clientSecret: string,
   ) {}
 
-  // ── OAuth2 토큰 관리 ───────────────────────────────────────────
+  // ── OAuth2 토큰 관리 (in-memory mutex로 race condition 방지) ────
 
   private async getAccessToken(): Promise<string> {
     if (this.tokenCache && Date.now() < this.tokenCache.expiresAt - 60_000) {
       return this.tokenCache.accessToken
     }
 
+    // 이미 토큰 갱신 중이면 기존 Promise 재사용 (mutex)
+    if (this.tokenRefreshPromise) {
+      return this.tokenRefreshPromise
+    }
+
+    this.tokenRefreshPromise = this.refreshToken()
+    try {
+      return await this.tokenRefreshPromise
+    } finally {
+      this.tokenRefreshPromise = null
+    }
+  }
+
+  private async refreshToken(): Promise<string> {
     const timestamp = Date.now()
     const signature = this.generateSignature(timestamp)
 

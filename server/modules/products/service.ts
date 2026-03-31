@@ -221,12 +221,20 @@ export async function createListing(
 ): Promise<string> {
   // 가공 상품 조회
   const processed = await repo.getProcessedProductById(db, data.processedProductId)
+  if (!processed) {
+    throw new Error(`가공 상품을 찾을 수 없습니다: ${data.processedProductId}`)
+  }
 
   // 마켓 어댑터 통해 실제 등록 시도
-  if (processed && data.marketplace !== 'store') {
+  if (data.marketplace !== 'store') {
     try {
       const adapter = createMarketplaceAdapter(data.marketplace as 'naver' | 'coupang')
-      const images = Array.isArray(processed.processed_images) ? (processed.processed_images as string[]) : []
+      // 이미지: 객체 배열에서 URL 문자열 추출
+      const rawImages = Array.isArray(processed.processed_images) ? processed.processed_images : []
+      const images = rawImages.map((img: unknown) =>
+        typeof img === 'string' ? img : (img as Record<string, unknown>)?.path ?? (img as Record<string, unknown>)?.url ?? ''
+      ).filter(Boolean) as string[]
+
       const result = await adapter.createListing({
         processedProductId: data.processedProductId,
         title: processed.title ?? '',

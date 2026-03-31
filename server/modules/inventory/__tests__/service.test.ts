@@ -15,6 +15,24 @@ vi.mock('../repository.js', () => ({
   }),
 }))
 
+vi.mock('../../../adapters/wholesale-adapter-factory.js', () => ({
+  createWholesaleAdapter: vi.fn().mockReturnValue({
+    name: 'mock',
+    syncProduct: vi.fn().mockResolvedValue({
+      supplyStatus: 'available',
+      stockQuantity: 50,
+      price: 15000,
+    }),
+  }),
+}))
+
+vi.mock('../../../adapters/marketplace-adapter-factory.js', () => ({
+  createMarketplaceAdapter: vi.fn().mockReturnValue({
+    name: 'mock',
+    updateListing: vi.fn().mockResolvedValue(undefined),
+  }),
+}))
+
 import { getJobsDueForPoll, markJobPolled, recordInventorySnapshot } from '../repository.js'
 import { schedulePollJobs, processInventoryPoll } from '../service.js'
 
@@ -116,15 +134,17 @@ describe('processInventoryPoll', () => {
 
   it('도매 상품 재고를 조회하고 스냅샷을 기록한다', async () => {
     const mockDb = {
-      query: vi.fn().mockResolvedValue({
-        rows: [{ stock_quantity: 50, price: 15000, supply_status: 'available' }],
-      }),
+      query: vi.fn()
+        .mockResolvedValueOnce({
+          rows: [{ source: 'domeggook', source_product_id: 'DG-001', stock_quantity: 50, price: 15000, supply_status: 'available' }],
+        })
+        .mockResolvedValueOnce({ rows: [] }), // UPDATE wholesale_products
     } as any
 
     await processInventoryPoll(mockDb, 'job-001', 'wp-001', 'tier2')
 
     expect(mockDb.query).toHaveBeenCalledWith(
-      expect.stringContaining('SELECT stock_quantity'),
+      expect.stringContaining('SELECT source'),
       ['wp-001']
     )
     expect(recordInventorySnapshot).toHaveBeenCalledWith(mockDb, {
@@ -136,10 +156,18 @@ describe('processInventoryPoll', () => {
   })
 
   it('재고 5개 이하이면 tier1으로 자동 분류한다', async () => {
+    const { createWholesaleAdapter } = await import('../../../adapters/wholesale-adapter-factory.js')
+    vi.mocked(createWholesaleAdapter).mockReturnValue({
+      name: 'mock',
+      syncProduct: vi.fn().mockResolvedValue({ supplyStatus: 'available', stockQuantity: 3, price: 10000 }),
+      searchProducts: vi.fn(),
+      getProduct: vi.fn(),
+    } as any)
+
     const mockDb = {
-      query: vi.fn().mockResolvedValue({
-        rows: [{ stock_quantity: 3, price: 10000, supply_status: 'available' }],
-      }),
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ source: 'domeggook', source_product_id: 'DG-001', stock_quantity: 10, price: 10000, supply_status: 'available' }] })
+        .mockResolvedValueOnce({ rows: [] }),
     } as any
 
     await processInventoryPoll(mockDb, 'job-001', 'wp-001', 'tier2')
@@ -148,10 +176,18 @@ describe('processInventoryPoll', () => {
   })
 
   it('재고 충분하고 판매 가능이면 tier2로 분류한다', async () => {
+    const { createWholesaleAdapter } = await import('../../../adapters/wholesale-adapter-factory.js')
+    vi.mocked(createWholesaleAdapter).mockReturnValue({
+      name: 'mock',
+      syncProduct: vi.fn().mockResolvedValue({ supplyStatus: 'available', stockQuantity: 100, price: 20000 }),
+      searchProducts: vi.fn(),
+      getProduct: vi.fn(),
+    } as any)
+
     const mockDb = {
-      query: vi.fn().mockResolvedValue({
-        rows: [{ stock_quantity: 100, price: 20000, supply_status: 'available' }],
-      }),
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ source: 'domeggook', source_product_id: 'DG-001', stock_quantity: 5, price: 10000, supply_status: 'available' }] })
+        .mockResolvedValueOnce({ rows: [] }),
     } as any
 
     await processInventoryPoll(mockDb, 'job-001', 'wp-001', 'tier1')
@@ -160,10 +196,19 @@ describe('processInventoryPoll', () => {
   })
 
   it('공급 상태가 available이 아니면 tier3으로 분류한다', async () => {
+    const { createWholesaleAdapter } = await import('../../../adapters/wholesale-adapter-factory.js')
+    vi.mocked(createWholesaleAdapter).mockReturnValue({
+      name: 'mock',
+      syncProduct: vi.fn().mockResolvedValue({ supplyStatus: 'soldout', stockQuantity: 50, price: 15000 }),
+      searchProducts: vi.fn(),
+      getProduct: vi.fn(),
+    } as any)
+
     const mockDb = {
-      query: vi.fn().mockResolvedValue({
-        rows: [{ stock_quantity: 50, price: 15000, supply_status: 'soldout' }],
-      }),
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ source: 'domeggook', source_product_id: 'DG-001', stock_quantity: 50, price: 15000, supply_status: 'available' }] })
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE wholesale_products
+        .mockResolvedValueOnce({ rows: [] }) // SELECT listings (pauseMarketListings)
     } as any
 
     await processInventoryPoll(mockDb, 'job-001', 'wp-001', 'tier2')

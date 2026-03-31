@@ -17,6 +17,8 @@ import { productsModule } from './modules/products/routes.js'
 import { contentModule } from './modules/content/routes.js'
 import { inventoryModule } from './modules/inventory/routes.js'
 import { ordersModule } from './modules/orders/routes.js'
+import { startInventoryWorker } from './workers/inventory-worker.js'
+import { startOrderWorker } from './workers/order-worker.js'
 
 const app = Fastify({
   logger: {
@@ -34,8 +36,8 @@ await app.register(errorHandlerPlugin)
 await app.register(databasePlugin)
 await app.register(redisPlugin)
 await app.register(bullmqPlugin)
-await app.register(authPlugin)
 await app.register(rateLimitPlugin)
+await app.register(authPlugin)
 
 // API v1 라우트
 await app.register(authModule, { prefix: '/api/v1/auth' })
@@ -49,6 +51,20 @@ await app.register(inventoryModule, { prefix: '/api/v1/inventory' })
 await app.register(ordersModule, { prefix: '/api/v1/orders' })
 
 app.get('/health', async () => ({ status: 'ok' }))
+
+// BullMQ 워커 시작 (재고 폴링 + 주문 수집)
+if (config.NODE_ENV !== 'test') {
+  const inventoryWorker = startInventoryWorker(app.db)
+  const orderWorker = startOrderWorker(app.db, app.redis)
+
+  app.addHook('onClose', async () => {
+    await inventoryWorker.close()
+    await orderWorker.close()
+    app.log.info('BullMQ 워커 종료')
+  })
+
+  app.log.info('BullMQ 워커 시작: inventory-sync, order-collect')
+}
 
 try {
   await app.listen({ port: config.PORT, host: '0.0.0.0' })

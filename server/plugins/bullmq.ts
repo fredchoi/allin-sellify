@@ -31,6 +31,18 @@ const bullmqPlugin: FastifyPluginAsync = async (app) => {
 
     await app.register(serverAdapter.registerPlugin(), {
       prefix: '/admin/queues',
+      basePath: '/admin/queues',
+    })
+
+    // /admin/queues 기본 인증 (개발 환경이라도 보호)
+    app.addHook('onRequest', async (request, reply) => {
+      if (request.url.startsWith('/admin/queues') && app.authenticate) {
+        try {
+          await app.authenticate(request, reply)
+        } catch {
+          // 인증 실패 시 401 (authenticate가 이미 reply.send 호출)
+        }
+      }
     })
 
     app.log.info('Bull Board 대시보드 활성화: http://localhost:3001/admin/queues')

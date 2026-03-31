@@ -102,13 +102,27 @@ export async function collectMarketOrders(
         totalAmount: order.totalAmount,
         commissionAmount: order.commissionAmount,
         orderedAt: order.orderedAt,
-        items: order.items.map((item) => ({
-          productName: item.productName,
-          optionName: item.optionName,
-          quantity: item.quantity,
-          sellingPrice: item.sellingPrice,
-          wholesalePrice: 0,
-          commissionRate: item.commissionRate ?? 0.033,
+        items: await Promise.all(order.items.map(async (item) => {
+          // 도매 원가 조회: market_product_id → listing → processed → wholesale
+          let wholesalePrice = 0
+          if (item.marketProductId) {
+            const wpResult = await db.query<{ price: number }>(
+              `SELECT wp.price FROM product_market_listings pml
+               JOIN processed_products pp ON pp.id = pml.processed_product_id
+               JOIN wholesale_products wp ON wp.id = pp.wholesale_product_id
+               WHERE pml.market_product_id = $1 LIMIT 1`,
+              [item.marketProductId]
+            )
+            if (wpResult.rows[0]) wholesalePrice = wpResult.rows[0].price
+          }
+          return {
+            productName: item.productName,
+            optionName: item.optionName,
+            quantity: item.quantity,
+            sellingPrice: item.sellingPrice,
+            wholesalePrice,
+            commissionRate: item.commissionRate ?? 0.033,
+          }
         })),
       })
       if (isNew) collected++
