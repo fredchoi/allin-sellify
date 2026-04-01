@@ -58,16 +58,20 @@ app.get('/health', async () => ({ status: 'ok' }))
 
 // BullMQ 워커 시작 (재고 폴링 + 주문 수집)
 if (config.NODE_ENV !== 'test') {
-  const inventoryWorker = startInventoryWorker(app.db)
-  const orderWorker = startOrderWorker(app.db, app.redis)
+  try {
+    const inventoryWorker = startInventoryWorker(app.db)
+    const orderWorker = startOrderWorker(app.db, app.redis)
 
-  app.addHook('onClose', async () => {
-    await inventoryWorker.close()
-    await orderWorker.close()
-    app.log.info('BullMQ 워커 종료')
-  })
+    app.addHook('onClose', async () => {
+      await inventoryWorker.close()
+      await orderWorker.close()
+      app.log.info('BullMQ 워커 종료')
+    })
 
-  app.log.info('BullMQ 워커 시작: inventory-sync, order-collect')
+    app.log.info('BullMQ 워커 시작: inventory-sync, order-collect')
+  } catch {
+    app.log.warn('BullMQ 워커 시작 실패 (Redis 미연결) — 백그라운드 작업 비활성')
+  }
 }
 
 try {

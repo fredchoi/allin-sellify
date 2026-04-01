@@ -3,6 +3,9 @@ import { config } from '../config.js'
 
 const connection: QueueOptions['connection'] = {
   url: config.REDIS_URL,
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: false,
+  lazyConnect: true,
 }
 
 export const queues = {
