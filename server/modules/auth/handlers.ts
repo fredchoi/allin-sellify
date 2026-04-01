@@ -1,9 +1,15 @@
 import type { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify'
-import { loginSchema, refreshSchema, logoutSchema } from './schemas.js'
-import { loginSeller, refreshAccessToken, logoutSeller } from './service.js'
+import { registerSchema, loginSchema, refreshSchema, logoutSchema } from './schemas.js'
+import { registerSeller, loginSeller, refreshAccessToken, logoutSeller } from './service.js'
 
 export function buildHandlers(fastify: FastifyInstance) {
   return {
+    async register(request: FastifyRequest, reply: FastifyReply) {
+      const input = registerSchema.parse(request.body)
+      const result = await registerSeller(fastify.db, fastify, input)
+      return reply.status(201).send(result)
+    },
+
     async login(request: FastifyRequest, reply: FastifyReply) {
       const input = loginSchema.parse(request.body)
       const result = await loginSeller(fastify.db, fastify, input)

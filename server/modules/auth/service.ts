@@ -39,6 +39,60 @@ function buildUnauthorizedError(): AppError {
 // 서비스 함수 (DB 의존성 주입 방식)
 // ─────────────────────────────────────────────
 
+export async function registerSeller(
+  db: { query: (sql: string, params: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> },
+  fastify: Pick<FastifyInstance, 'jwt'>,
+  input: { name: string; email: string; password: string },
+): Promise<LoginResult> {
+  // 이메일 중복 체크
+  const { rows: existing } = await db.query(
+    'SELECT id FROM sellers WHERE email = $1',
+    [input.email],
+  )
+  if (existing.length > 0) {
+    throw new AppError(409, '이미 등록된 이메일입니다.', 'CONFLICT')
+  }
+
+  const passwordHash = crypto.createHash('sha256').update(input.password).digest('hex')
+
+  const { rows } = await db.query(
+    `INSERT INTO sellers (name, email, password_hash, plan, status)
+     VALUES ($1, $2, $3, 'starter', 'active')
+     RETURNING id, email, name, plan`,
+    [input.name, input.email, passwordHash],
+  )
+
+  const seller = rows[0]
+
+  const payload: JwtPayload = {
+    sellerId: seller['id'] as string,
+    plan: seller['plan'] as JwtPayload['plan'],
+  }
+
+  const accessToken = fastify.jwt.sign(payload)
+  const rawRefreshToken = crypto.randomBytes(64).toString('hex')
+  const tokenHash = hashToken(rawRefreshToken)
+
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + 7)
+
+  await db.query(
+    'INSERT INTO refresh_tokens (seller_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+    [seller['id'], tokenHash, expiresAt.toISOString()],
+  )
+
+  return {
+    accessToken,
+    refreshToken: rawRefreshToken,
+    seller: {
+      id: seller['id'] as string,
+      email: seller['email'] as string,
+      name: seller['name'] as string,
+      plan: seller['plan'] as string,
+    },
+  }
+}
+
 export async function loginSeller(
   db: { query: (sql: string, params: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> },
   fastify: Pick<FastifyInstance, 'jwt'>,
