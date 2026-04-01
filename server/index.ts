@@ -17,6 +17,7 @@ import { contentModule } from './modules/content/routes.js'
 import { inventoryModule } from './modules/inventory/routes.js'
 import { ordersModule } from './modules/orders/routes.js'
 import { dashboardModule } from './modules/dashboard/routes.js'
+import { adminModule } from './modules/admin/routes.js'
 import websocketPlugin from './plugins/websocket.js'
 import { startInventoryWorker } from './workers/inventory-worker.js'
 import { startOrderWorker } from './workers/order-worker.js'
@@ -51,6 +52,7 @@ await app.register(contentModule, { prefix: '/api/v1/content' })
 await app.register(inventoryModule, { prefix: '/api/v1/inventory' })
 await app.register(ordersModule, { prefix: '/api/v1/orders' })
 await app.register(dashboardModule, { prefix: '/api/v1/dashboard' })
+await app.register(adminModule, { prefix: '/api/v1/admin' })
 
 app.get('/health', async () => ({ status: 'ok' }))
 

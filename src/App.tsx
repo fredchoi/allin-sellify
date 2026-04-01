@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { AdminAuthProvider } from './contexts/AdminAuthContext'
 import { ToastProvider } from './components/ui/Toast'
 import { Navbar } from './components/layout/Navbar'
 import { Footer } from './components/layout/Footer'
 import { DashboardLayout } from './components/layout/DashboardLayout'
+import { AdminLayout } from './components/layout/AdminLayout'
 import { HeroSection } from './components/sections/HeroSection'
 import { PainPointsSection } from './components/sections/PainPointsSection'
 import { PipelineSection } from './components/sections/PipelineSection'
@@ -24,6 +26,10 @@ import { OrdersPage } from './pages/OrdersPage'
 import { ContentDashboard } from './pages/ContentDashboard'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
+import { AdminLoginPage } from './pages/admin/AdminLoginPage'
+import { AdminDashboard } from './pages/admin/AdminDashboard'
+import { AdminSellers } from './pages/admin/AdminSellers'
+import { AdminJobs } from './pages/admin/AdminJobs'
 
 function LandingPage() {
   return (
@@ -64,6 +70,22 @@ function App() {
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="orders" element={<OrdersPage />} />
               <Route path="content" element={<ContentDashboard />} />
+            </Route>
+
+            {/* 관리자 라우트 */}
+            <Route path="/admin/login" element={
+              <AdminAuthProvider>
+                <AdminLoginPage />
+              </AdminAuthProvider>
+            } />
+            <Route path="/admin" element={
+              <AdminAuthProvider>
+                <AdminLayout />
+              </AdminAuthProvider>
+            }>
+              <Route index element={<AdminDashboard />} />
+              <Route path="sellers" element={<AdminSellers />} />
+              <Route path="jobs" element={<AdminJobs />} />
             </Route>
           </Routes>
         </BrowserRouter>
