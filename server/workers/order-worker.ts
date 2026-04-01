@@ -48,11 +48,29 @@ export function startOrderWorker(db: Pool, redis: Redis) {
   )
 
   worker.on('completed', (job, result) => {
-    console.info(`[order-worker] 완료: ${job.id}`, result)
+    console.info(JSON.stringify({
+      level: 'info',
+      worker: 'order-collect',
+      event: 'completed',
+      jobId: job.id,
+      sellerId: job.data.sellerId,
+      marketplace: job.data.marketplace,
+      result,
+      timestamp: new Date().toISOString(),
+    }))
   })
 
   worker.on('failed', (job, err) => {
-    console.error(`[order-worker] 실패: ${job?.id}`, err.message)
+    console.error(JSON.stringify({
+      level: 'error',
+      worker: 'order-collect',
+      event: 'failed',
+      jobId: job?.id,
+      sellerId: job?.data?.sellerId,
+      marketplace: job?.data?.marketplace,
+      error: err.message,
+      timestamp: new Date().toISOString(),
+    }))
   })
 
   return worker

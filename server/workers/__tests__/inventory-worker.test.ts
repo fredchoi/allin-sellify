@@ -70,7 +70,7 @@ describe('processInventoryPoll', () => {
       getProduct: vi.fn(),
     } as any)
 
-    // 순서: SELECT → UPDATE → SELECT listings → UPDATE listing
+    // 순서: SELECT → UPDATE → snapshot → SELECT listings → UPDATE listing → SELECT affected sellers
     mockDb.query
       .mockResolvedValueOnce({
         rows: [{ source: 'domeggook', source_product_id: 'DG-001', stock_quantity: 10, price: 10000, supply_status: 'available' }],
@@ -80,6 +80,7 @@ describe('processInventoryPoll', () => {
         rows: [{ id: 'pml-1', marketplace: 'naver', market_product_id: 'NV-001' }],
       })
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ seller_id: 'seller-1' }] })
 
     await processInventoryPoll(mockDb, 'job-1', 'wp-uuid-1', 'tier2')
 

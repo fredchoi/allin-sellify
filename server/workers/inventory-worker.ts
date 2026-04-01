@@ -30,11 +30,28 @@ export function startInventoryWorker(db: Pool) {
   )
 
   worker.on('completed', (job) => {
-    console.info(`[inventory-worker] 완료: ${job.id}`)
+    console.info(JSON.stringify({
+      level: 'info',
+      worker: 'inventory-sync',
+      event: 'completed',
+      jobId: job.id,
+      wholesaleProductId: job.data.wholesaleProductId,
+      tier: job.data.tier,
+      timestamp: new Date().toISOString(),
+    }))
   })
 
   worker.on('failed', (job, err) => {
-    console.error(`[inventory-worker] 실패: ${job?.id}`, err.message)
+    console.error(JSON.stringify({
+      level: 'error',
+      worker: 'inventory-sync',
+      event: 'failed',
+      jobId: job?.id,
+      wholesaleProductId: job?.data?.wholesaleProductId,
+      tier: job?.data?.tier,
+      error: err.message,
+      timestamp: new Date().toISOString(),
+    }))
   })
 
   return worker
