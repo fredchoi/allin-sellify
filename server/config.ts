@@ -25,6 +25,8 @@ const configSchema = z.object({
   MARKETPLACE_ADAPTER_MODE: z.enum(['mock', 'real']).default('mock'),
   // 블로그·SNS 콘텐츠 발행
   SNS_API_MODE: z.enum(['mock', 'real']).default('mock'),
+  // 데모 모드: API 키 없이 전체 파이프라인 체험
+  DEMO_MODE: z.enum(['true', 'false']).default('false'),
   // Phase 0: JWT 인증
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters').default('dev-jwt-secret-must-be-changed-in-production!!'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),

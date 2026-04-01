@@ -5,6 +5,8 @@ import { upsertOrderFromMarket } from './repository.js'
 import type { MockCollectOrderRequest } from './schemas.js'
 import { createMarketplaceAdapter } from '../../adapters/marketplace-adapter-factory.js'
 import type { MarketOrder } from '../../adapters/marketplace-adapter.js'
+import { config } from '../../config.js'
+import { appEvents, APP_EVENT_NOTIFY } from '../../lib/events.js'
 
 // Redis NX Lock으로 중복 처리 방지
 async function acquireLock(redis: Redis, key: string, ttlSeconds = 60): Promise<boolean> {
@@ -76,9 +78,10 @@ export async function collectMarketOrders(
   since: Date,
   log: FastifyBaseLogger,
 ): Promise<{ collected: number; skipped: number }> {
-  const adapter = createMarketplaceAdapter(marketplace)
+  const effectiveMarket = config.DEMO_MODE === 'true' ? 'mock' : marketplace
+  const adapter = createMarketplaceAdapter(effectiveMarket)
   const orders = await adapter.collectOrders(since)
-  log.info({ marketplace, count: orders.length }, '마켓 주문 수집 완료')
+  log.info({ marketplace: effectiveMarket, count: orders.length, demo: config.DEMO_MODE === 'true' }, '마켓 주문 수집 완료')
 
   let collected = 0
   let skipped = 0
@@ -133,5 +136,18 @@ export async function collectMarketOrders(
   }
 
   log.info({ marketplace, collected, skipped }, '주문 DB 저장 완료')
+
+  // 새 주문이 있으면 셀러에게 실시간 알림
+  if (collected > 0) {
+    appEvents.emit(APP_EVENT_NOTIFY, {
+      sellerId,
+      event: {
+        type: 'order_received' as const,
+        data: { marketplace, collected, skipped },
+        timestamp: new Date().toISOString(),
+      },
+    })
+  }
+
   return { collected, skipped }
 }

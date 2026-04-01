@@ -209,6 +209,7 @@ describe('processInventoryPoll', () => {
         .mockResolvedValueOnce({ rows: [{ source: 'domeggook', source_product_id: 'DG-001', stock_quantity: 50, price: 15000, supply_status: 'available' }] })
         .mockResolvedValueOnce({ rows: [] }) // UPDATE wholesale_products
         .mockResolvedValueOnce({ rows: [] }) // SELECT listings (pauseMarketListings)
+        .mockResolvedValueOnce({ rows: [] }) // SELECT affected sellers (stockout notification)
     } as any
 
     await processInventoryPoll(mockDb, 'job-001', 'wp-001', 'tier2')

@@ -7,6 +7,8 @@ import {
 } from './repository.js'
 import { createWholesaleAdapter } from '../../adapters/wholesale-adapter-factory.js'
 import { createMarketplaceAdapter } from '../../adapters/marketplace-adapter-factory.js'
+import { config } from '../../config.js'
+import { appEvents, APP_EVENT_NOTIFY } from '../../lib/events.js'
 
 export async function schedulePollJobs(db: Pool, queue: Queue): Promise<number> {
   const jobs = await getJobsDueForPoll(db)
@@ -56,8 +58,9 @@ export async function processInventoryPoll(
 
     const product = rows[0]
 
-    // 실제 도매 API로 재고 동기화
-    const adapter = createWholesaleAdapter(product.source as 'domeggook' | 'mock')
+    // 실제 도매 API로 재고 동기화 (데모 모드 시 mock 강제)
+    const effectiveSource = config.DEMO_MODE === 'true' ? 'mock' : product.source as 'domeggook' | 'mock'
+    const adapter = createWholesaleAdapter(effectiveSource)
     const latest = await adapter.syncProduct(product.source_product_id)
 
     // DB 업데이트
@@ -76,9 +79,27 @@ export async function processInventoryPoll(
       supplyStatus: latest.supplyStatus,
     })
 
-    // 품절 감지 → 마켓 판매중지 자동화
+    // 품절 감지 → 마켓 판매중지 자동화 + 셀러 알림
     if (latest.supplyStatus === 'soldout' && product.supply_status === 'available') {
       await pauseMarketListings(db, wholesaleProductId)
+
+      // 영향 받는 셀러에게 품절 알림 전송
+      const { rows: affectedSellers } = await db.query<{ seller_id: string }>(
+        `SELECT DISTINCT pp.seller_id
+         FROM processed_products pp
+         WHERE pp.wholesale_product_id = $1`,
+        [wholesaleProductId]
+      )
+      for (const { seller_id } of affectedSellers) {
+        appEvents.emit(APP_EVENT_NOTIFY, {
+          sellerId: seller_id,
+          event: {
+            type: 'stockout_detected' as const,
+            data: { wholesaleProductId },
+            timestamp: new Date().toISOString(),
+          },
+        })
+      }
     }
 
     // Tier 자동 재분류
@@ -113,7 +134,8 @@ async function pauseMarketListings(db: Pool, wholesaleProductId: string): Promis
   for (const listing of listings) {
     try {
       if (listing.market_product_id && listing.marketplace !== 'store') {
-        const adapter = createMarketplaceAdapter(listing.marketplace as 'naver' | 'coupang')
+        const effectiveMarket = config.DEMO_MODE === 'true' ? 'mock' : listing.marketplace as 'naver' | 'coupang'
+        const adapter = createMarketplaceAdapter(effectiveMarket)
         await adapter.updateListing(listing.market_product_id, {})
       }
       await db.query(

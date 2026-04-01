@@ -29,8 +29,9 @@ export async function collectProducts(
   input: CollectProductsInput,
   log: FastifyBaseLogger
 ): Promise<{ collected: number; skipped: number; duplicates: number }> {
-  const adapter = createWholesaleAdapter(input.source)
-  log.info({ source: input.source }, '도매 상품 수집 시작')
+  const effectiveSource = config.DEMO_MODE === 'true' ? 'mock' : input.source
+  const adapter = createWholesaleAdapter(effectiveSource)
+  log.info({ source: effectiveSource, demo: config.DEMO_MODE === 'true' }, '도매 상품 수집 시작')
 
   const result = await adapter.searchProducts({
     keyword: input.keyword,
@@ -228,7 +229,8 @@ export async function createListing(
   // 마켓 어댑터 통해 실제 등록 시도
   if (data.marketplace !== 'store') {
     try {
-      const adapter = createMarketplaceAdapter(data.marketplace as 'naver' | 'coupang')
+      const effectiveMarket = config.DEMO_MODE === 'true' ? 'mock' : data.marketplace as 'naver' | 'coupang'
+      const adapter = createMarketplaceAdapter(effectiveMarket)
       // 이미지: 객체 배열에서 URL 문자열 추출
       const rawImages = Array.isArray(processed.processed_images) ? processed.processed_images : []
       const images = rawImages.map((img: unknown) =>
