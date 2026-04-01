@@ -1,24 +1,25 @@
 import type { Pool } from 'pg'
-import type { Queue } from 'bullmq'
 import {
   getJobsDueForPoll,
   markJobPolled,
   recordInventorySnapshot,
 } from './repository.js'
+import { addJob } from '../../lib/queue.js'
 import { createWholesaleAdapter } from '../../adapters/wholesale-adapter-factory.js'
 import { createMarketplaceAdapter } from '../../adapters/marketplace-adapter-factory.js'
 import { config } from '../../config.js'
 import { appEvents, APP_EVENT_NOTIFY } from '../../lib/events.js'
 
-export async function schedulePollJobs(db: Pool, queue: Queue): Promise<number> {
+export async function schedulePollJobs(db: Pool): Promise<number> {
   const jobs = await getJobsDueForPoll(db)
   let queued = 0
 
   for (const job of jobs) {
-    await queue.add(
+    await addJob(
+      db,
+      'inventory-sync',
       'poll-inventory',
       { jobId: job.id, wholesaleProductId: job.wholesale_product_id, tier: job.tier },
-      { jobId: `inv-${job.id}`, removeOnComplete: 100, removeOnFail: 50 }
     )
     queued++
   }
@@ -79,7 +80,7 @@ export async function processInventoryPoll(
       supplyStatus: latest.supplyStatus,
     })
 
-    // 품절 감지 → 마켓 판매중지 자동화 + 셀러 알림
+    // 품절 감지 -> 마켓 판매중지 자동화 + 셀러 알림
     if (latest.supplyStatus === 'soldout' && product.supply_status === 'available') {
       await pauseMarketListings(db, wholesaleProductId)
 
@@ -117,7 +118,7 @@ export async function processInventoryPoll(
 
 // 품절 시 해당 도매 상품의 모든 마켓 등록을 중지
 async function pauseMarketListings(db: Pool, wholesaleProductId: string): Promise<void> {
-  // wholesale → processed → market_listings 경로 추적
+  // wholesale -> processed -> market_listings 경로 추적
   const { rows: listings } = await db.query<{
     id: string
     marketplace: string

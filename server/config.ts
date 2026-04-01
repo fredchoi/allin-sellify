@@ -16,8 +16,7 @@ const configSchema = z.object({
   DOMEGGOOK_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   UPLOAD_DIR: z.string().default('./uploads'),
-  // Phase 0: Redis + BullMQ + Sentry
-  REDIS_URL: z.string().default('redis://localhost:6379'),
+  // Phase 0: Sentry
   SENTRY_DSN: z.string().optional(),
   // 네이버 스마트스토어 커머스 API
   NAVER_COMMERCE_CLIENT_ID: z.string().optional(),

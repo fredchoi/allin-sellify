@@ -1,26 +1,14 @@
 import type { Pool } from 'pg'
-import type { Redis } from 'ioredis'
 import type { FastifyBaseLogger } from 'fastify'
 import { upsertOrderFromMarket } from './repository.js'
 import type { MockCollectOrderRequest } from './schemas.js'
 import { createMarketplaceAdapter } from '../../adapters/marketplace-adapter-factory.js'
-import type { MarketOrder } from '../../adapters/marketplace-adapter.js'
+import { acquireLock, releaseLock } from '../../lib/queue.js'
 import { config } from '../../config.js'
 import { appEvents, APP_EVENT_NOTIFY } from '../../lib/events.js'
 
-// Redis NX Lock으로 중복 처리 방지
-async function acquireLock(redis: Redis, key: string, ttlSeconds = 60): Promise<boolean> {
-  const result = await redis.set(key, '1', 'EX', ttlSeconds, 'NX')
-  return result === 'OK'
-}
-
-async function releaseLock(redis: Redis, key: string): Promise<void> {
-  await redis.del(key)
-}
-
 export async function collectMockOrders(
   db: Pool,
-  redis: Redis,
   req: MockCollectOrderRequest
 ): Promise<{ collected: number; skipped: number }> {
   let collected = 0
@@ -30,7 +18,7 @@ export async function collectMockOrders(
     const marketOrderId = `MOCK-${req.marketplace.toUpperCase()}-${Date.now()}-${i}`
     const lockKey = `order-lock:${req.marketplace}:${marketOrderId}`
 
-    const acquired = await acquireLock(redis, lockKey)
+    const acquired = await acquireLock(db, lockKey)
     if (!acquired) {
       skipped++
       continue
@@ -61,7 +49,7 @@ export async function collectMockOrders(
       if (isNew) collected++
       else skipped++
     } finally {
-      await releaseLock(redis, lockKey)
+      await releaseLock(db, lockKey)
     }
   }
 
@@ -72,7 +60,6 @@ export async function collectMockOrders(
 
 export async function collectMarketOrders(
   db: Pool,
-  redis: Redis,
   sellerId: string,
   marketplace: 'naver' | 'coupang',
   since: Date,
@@ -88,7 +75,7 @@ export async function collectMarketOrders(
 
   for (const order of orders) {
     const lockKey = `order-lock:${marketplace}:${order.marketOrderId}`
-    const acquired = await acquireLock(redis, lockKey)
+    const acquired = await acquireLock(db, lockKey)
     if (!acquired) {
       skipped++
       continue
@@ -106,7 +93,7 @@ export async function collectMarketOrders(
         commissionAmount: order.commissionAmount,
         orderedAt: order.orderedAt,
         items: await Promise.all(order.items.map(async (item) => {
-          // 도매 원가 조회: market_product_id → listing → processed → wholesale
+          // 도매 원가 조회: market_product_id -> listing -> processed -> wholesale
           let wholesalePrice = 0
           if (item.marketProductId) {
             const wpResult = await db.query<{ price: number }>(
@@ -131,7 +118,7 @@ export async function collectMarketOrders(
       if (isNew) collected++
       else skipped++
     } finally {
-      await releaseLock(redis, lockKey)
+      await releaseLock(db, lockKey)
     }
   }
 

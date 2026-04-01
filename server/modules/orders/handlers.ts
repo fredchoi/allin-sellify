@@ -55,7 +55,7 @@ export function buildHandlers(fastify: FastifyInstance) {
 
     mockCollect: async (req: FastifyRequest, reply: FastifyReply) => {
       const data = mockCollectOrderSchema.parse(req.body)
-      const result = await collectMockOrders(db, fastify.redis, data)
+      const result = await collectMockOrders(db, data)
       reply.send(result)
     },
   }

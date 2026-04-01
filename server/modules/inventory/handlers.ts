@@ -7,6 +7,7 @@ import {
   getInventoryHistory,
 } from './repository.js'
 import { schedulePollJobs } from './service.js'
+import { getQueueStats } from '../../lib/queue.js'
 
 export function buildHandlers(fastify: FastifyInstance) {
   const db = fastify.db
@@ -43,18 +44,18 @@ export function buildHandlers(fastify: FastifyInstance) {
     },
 
     triggerSync: async (_req: FastifyRequest, reply: FastifyReply) => {
-      const queued = await schedulePollJobs(db, fastify.inventoryQueue)
+      const queued = await schedulePollJobs(db)
       reply.send({ queued, message: `${queued}개 재고 폴링 작업을 큐에 추가했습니다.` })
     },
 
     syncStatus: async (_req: FastifyRequest, reply: FastifyReply) => {
-      const [waiting, active, completed, failed] = await Promise.all([
-        fastify.inventoryQueue.getWaitingCount(),
-        fastify.inventoryQueue.getActiveCount(),
-        fastify.inventoryQueue.getCompletedCount(),
-        fastify.inventoryQueue.getFailedCount(),
-      ])
-      reply.send({ waiting, active, completed, failed })
+      const stats = await getQueueStats(db, 'inventory-sync')
+      reply.send({
+        waiting: stats.pending,
+        active: stats.processing,
+        completed: stats.completed,
+        failed: stats.failed,
+      })
     },
   }
 }

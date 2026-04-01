@@ -4,8 +4,7 @@ import databasePlugin from './plugins/database.js'
 import corsPlugin from './plugins/cors.js'
 import errorHandlerPlugin from './plugins/error-handler.js'
 import sentryPlugin from './plugins/sentry.js'
-import redisPlugin from './plugins/redis.js'
-import bullmqPlugin from './plugins/bullmq.js'
+import jobQueuePlugin from './plugins/bullmq.js'
 import authPlugin from './plugins/auth.js'
 import rateLimitPlugin from './plugins/rate-limit.js'
 import { authModule } from './modules/auth/routes.js'
@@ -36,8 +35,7 @@ await app.register(sentryPlugin)
 await app.register(corsPlugin)
 await app.register(errorHandlerPlugin)
 await app.register(databasePlugin)
-await app.register(redisPlugin)
-await app.register(bullmqPlugin)
+await app.register(jobQueuePlugin)
 await app.register(rateLimitPlugin)
 await app.register(authPlugin)
 await app.register(websocketPlugin)
@@ -56,21 +54,21 @@ await app.register(dashboardModule, { prefix: '/api/v1/dashboard' })
 
 app.get('/health', async () => ({ status: 'ok' }))
 
-// BullMQ 워커 시작 (재고 폴링 + 주문 수집)
+// PG Job Queue 워커 시작 (재고 폴링 + 주문 수집)
 if (config.NODE_ENV !== 'test') {
   try {
     const inventoryWorker = startInventoryWorker(app.db)
-    const orderWorker = startOrderWorker(app.db, app.redis)
+    const orderWorker = startOrderWorker(app.db)
 
     app.addHook('onClose', async () => {
-      await inventoryWorker.close()
-      await orderWorker.close()
-      app.log.info('BullMQ 워커 종료')
+      inventoryWorker.stop()
+      orderWorker.stop()
+      app.log.info('Job Queue 워커 종료')
     })
 
-    app.log.info('BullMQ 워커 시작: inventory-sync, order-collect')
+    app.log.info('Job Queue 워커 시작: inventory-sync (10s), order-collect (30s)')
   } catch {
-    app.log.warn('BullMQ 워커 시작 실패 (Redis 미연결) — 백그라운드 작업 비활성')
+    app.log.warn('Job Queue 워커 시작 실패 — 백그라운드 작업 비활성')
   }
 }
 

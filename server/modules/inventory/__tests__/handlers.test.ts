@@ -32,6 +32,15 @@ vi.mock('../service.js', () => ({
   schedulePollJobs: vi.fn().mockResolvedValue(5),
 }))
 
+vi.mock('../../../lib/queue.js', () => ({
+  getQueueStats: vi.fn().mockResolvedValue({
+    pending: 3,
+    processing: 1,
+    completed: 100,
+    failed: 2,
+  }),
+}))
+
 // -------------------------------------------------
 // 테스트 셀러 컨텍스트
 // -------------------------------------------------
@@ -59,14 +68,6 @@ async function buildTestApp(): Promise<FastifyInstance> {
   app.decorate('authenticate', async (request: any) => {
     request.seller = TEST_SELLER
   })
-
-  app.decorate('inventoryQueue', {
-    add: vi.fn(),
-    getWaitingCount: vi.fn().mockResolvedValue(3),
-    getActiveCount: vi.fn().mockResolvedValue(1),
-    getCompletedCount: vi.fn().mockResolvedValue(100),
-    getFailedCount: vi.fn().mockResolvedValue(2),
-  } as any)
 
   await app.register(inventoryModule, { prefix: '/api/v1/inventory' })
   return app

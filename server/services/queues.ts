@@ -1,19 +1,12 @@
-import { Queue, QueueOptions } from 'bullmq'
-import { config } from '../config.js'
+// Queue name constants (previously BullMQ Queue instances, now simple strings)
+// Actual job queue operations use server/lib/queue.ts functions
 
-const connection: QueueOptions['connection'] = {
-  url: config.REDIS_URL,
-  maxRetriesPerRequest: null,
-  enableOfflineQueue: false,
-  lazyConnect: true,
-}
-
-export const queues = {
-  wholesaleCrawl: new Queue('wholesale-crawl', { connection }),
-  aiProcess: new Queue('ai-process', { connection }),
-  marketPublish: new Queue('market-publish', { connection }),
-  inventorySync: new Queue('inventory-sync', { connection }),
-  orderCollect: new Queue('order-collect', { connection }),
+export const QUEUE_NAMES = {
+  wholesaleCrawl: 'wholesale-crawl',
+  aiProcess: 'ai-process',
+  marketPublish: 'market-publish',
+  inventorySync: 'inventory-sync',
+  orderCollect: 'order-collect',
 } as const
 
-export type QueueName = keyof typeof queues
+export type QueueName = keyof typeof QUEUE_NAMES

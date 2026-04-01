@@ -1,23 +1,17 @@
 // order-collect 워커: 네이버 스마트스토어 주문 자동 수집
 //
-//   ┌────────────────┐    ┌─────────────┐    ┌──────────────────┐
-//   │ cron scheduler │───►│ BullMQ Queue │───►│ order worker     │
-//   │ (5분 주기)      │    │ order-collect│    │ collectMarket    │
-//   └────────────────┘    └─────────────┘    │ Orders()         │
-//                                            └──────────────────┘
+//   ┌────────────────┐    ┌──────────────┐    ┌──────────────────┐
+//   │ cron scheduler │───►│ job_queue     │───►│ order worker     │
+//   │ (5분 주기)      │    │ (PostgreSQL)  │    │ collectMarket    │
+//   └────────────────┘    └──────────────┘    │ Orders()         │
+//                                             └──────────────────┘
 
-import { createWorker } from '../lib/queue.js'
+import { startJobProcessor } from '../lib/queue.js'
 import { collectMarketOrders } from '../modules/orders/service.js'
 import type { Pool } from 'pg'
-import type { Redis } from 'ioredis'
+import type { JobRow } from '../lib/queue.js'
 
-interface OrderCollectJobData {
-  sellerId: string
-  marketplace: 'naver' | 'coupang'
-  since: string // ISO date string
-}
-
-export function startOrderWorker(db: Pool, redis: Redis) {
+export function startOrderWorker(db: Pool): { stop: () => void } {
   const logger = {
     info: (...args: unknown[]) => console.info('[order-worker]', ...args),
     error: (...args: unknown[]) => console.error('[order-worker]', ...args),
@@ -30,48 +24,36 @@ export function startOrderWorker(db: Pool, redis: Redis) {
     level: 'info',
   }
 
-  const worker = createWorker<OrderCollectJobData>(
+  const processor = startJobProcessor(
+    db,
     'order-collect',
-    async (job) => {
-      const { sellerId, marketplace, since } = job.data
+    async (job: JobRow) => {
+      const { sellerId, marketplace, since } = job.data as {
+        sellerId: string
+        marketplace: 'naver' | 'coupang'
+        since: string
+      }
       const result = await collectMarketOrders(
         db,
-        redis,
         sellerId,
         marketplace,
         new Date(since),
         logger as any,
       )
-      return result
+
+      console.info(JSON.stringify({
+        level: 'info',
+        worker: 'order-collect',
+        event: 'completed',
+        jobId: job.id,
+        sellerId,
+        marketplace,
+        result,
+        timestamp: new Date().toISOString(),
+      }))
     },
-    { concurrency: 2 }
+    { pollIntervalMs: 30_000 },
   )
 
-  worker.on('completed', (job, result) => {
-    console.info(JSON.stringify({
-      level: 'info',
-      worker: 'order-collect',
-      event: 'completed',
-      jobId: job.id,
-      sellerId: job.data.sellerId,
-      marketplace: job.data.marketplace,
-      result,
-      timestamp: new Date().toISOString(),
-    }))
-  })
-
-  worker.on('failed', (job, err) => {
-    console.error(JSON.stringify({
-      level: 'error',
-      worker: 'order-collect',
-      event: 'failed',
-      jobId: job?.id,
-      sellerId: job?.data?.sellerId,
-      marketplace: job?.data?.marketplace,
-      error: err.message,
-      timestamp: new Date().toISOString(),
-    }))
-  })
-
-  return worker
+  return processor
 }

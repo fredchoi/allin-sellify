@@ -26,6 +26,10 @@ vi.mock('../../modules/inventory/repository.js', () => ({
   recordInventorySnapshot: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('../../lib/queue.js', () => ({
+  addJob: vi.fn().mockResolvedValue('job-id-001'),
+}))
+
 import { processInventoryPoll, schedulePollJobs } from '../../modules/inventory/service.js'
 import { createWholesaleAdapter } from '../../adapters/wholesale-adapter-factory.js'
 import { markJobPolled, recordInventorySnapshot } from '../../modules/inventory/repository.js'
@@ -70,7 +74,7 @@ describe('processInventoryPoll', () => {
       getProduct: vi.fn(),
     } as any)
 
-    // 순서: SELECT → UPDATE → snapshot → SELECT listings → UPDATE listing → SELECT affected sellers
+    // 순서: SELECT -> UPDATE -> snapshot -> SELECT listings -> UPDATE listing -> SELECT affected sellers
     mockDb.query
       .mockResolvedValueOnce({
         rows: [{ source: 'domeggook', source_product_id: 'DG-001', stock_quantity: 10, price: 10000, supply_status: 'available' }],
@@ -84,7 +88,7 @@ describe('processInventoryPoll', () => {
 
     await processInventoryPoll(mockDb, 'job-1', 'wp-uuid-1', 'tier2')
 
-    // 품절 + 재고 0 → qty <= 5 → tier1
+    // 품절 + 재고 0 -> qty <= 5 -> tier1
     expect(markJobPolled).toHaveBeenCalledWith(mockDb, 'job-1', 'tier1')
     // pauseMarketListings가 호출되었는지 (listing status UPDATE 쿼리)
     expect(mockDb.query).toHaveBeenCalledWith(

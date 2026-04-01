@@ -74,12 +74,6 @@ async function buildTestApp(): Promise<FastifyInstance> {
     request.seller = TEST_SELLER
   })
 
-  app.decorate('redis', {
-    set: vi.fn().mockResolvedValue('OK'),
-    get: vi.fn().mockResolvedValue(null),
-    del: vi.fn().mockResolvedValue(1),
-  } as any)
-
   await app.register(ordersModule, { prefix: '/api/v1/orders' })
   return app
 }

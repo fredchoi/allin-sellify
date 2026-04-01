@@ -33,7 +33,12 @@ vi.mock('../../../adapters/marketplace-adapter-factory.js', () => ({
   }),
 }))
 
+vi.mock('../../../lib/queue.js', () => ({
+  addJob: vi.fn().mockResolvedValue('job-id-001'),
+}))
+
 import { getJobsDueForPoll, markJobPolled, recordInventorySnapshot } from '../repository.js'
+import { addJob } from '../../../lib/queue.js'
 import { schedulePollJobs, processInventoryPoll } from '../service.js'
 
 // ─────────────────────────────────────────────
@@ -41,15 +46,11 @@ import { schedulePollJobs, processInventoryPoll } from '../service.js'
 // ─────────────────────────────────────────────
 
 describe('schedulePollJobs', () => {
-  const mockQueue = {
-    add: vi.fn().mockResolvedValue(undefined),
-  } as any
-
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('폴링 예정 작업을 조회하고 큐에 추가한다', async () => {
+  it('폴링 예정 작업을 조회하고 job_queue에 추가한다', async () => {
     vi.mocked(getJobsDueForPoll).mockResolvedValue([
       {
         id: 'job-uuid-001',
@@ -77,27 +78,28 @@ describe('schedulePollJobs', () => {
       },
     ])
 
-    const queued = await schedulePollJobs({} as any, mockQueue)
+    const queued = await schedulePollJobs({} as any)
 
     expect(queued).toBe(2)
-    expect(mockQueue.add).toHaveBeenCalledTimes(2)
-    expect(mockQueue.add).toHaveBeenCalledWith(
+    expect(addJob).toHaveBeenCalledTimes(2)
+    expect(addJob).toHaveBeenCalledWith(
+      expect.anything(),
+      'inventory-sync',
       'poll-inventory',
       { jobId: 'job-uuid-001', wholesaleProductId: 'wp-uuid-001', tier: 'tier2' },
-      expect.objectContaining({ jobId: 'inv-job-uuid-001' })
     )
   })
 
   it('폴링 예정 작업이 없으면 0을 반환한다', async () => {
     vi.mocked(getJobsDueForPoll).mockResolvedValue([])
 
-    const queued = await schedulePollJobs({} as any, mockQueue)
+    const queued = await schedulePollJobs({} as any)
 
     expect(queued).toBe(0)
-    expect(mockQueue.add).not.toHaveBeenCalled()
+    expect(addJob).not.toHaveBeenCalled()
   })
 
-  it('각 작업에 고유한 jobId를 부여하여 중복 실행을 방지한다', async () => {
+  it('각 작업에 고유한 데이터를 부여하여 중복 실행을 방지한다', async () => {
     vi.mocked(getJobsDueForPoll).mockResolvedValue([
       {
         id: 'job-uuid-003',
@@ -113,12 +115,13 @@ describe('schedulePollJobs', () => {
       },
     ])
 
-    await schedulePollJobs({} as any, mockQueue)
+    await schedulePollJobs({} as any)
 
-    expect(mockQueue.add).toHaveBeenCalledWith(
-      'poll-inventory',
+    expect(addJob).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ jobId: 'inv-job-uuid-003' })
+      'inventory-sync',
+      'poll-inventory',
+      { jobId: 'job-uuid-003', wholesaleProductId: 'wp-uuid-003', tier: 'tier3' },
     )
   })
 })

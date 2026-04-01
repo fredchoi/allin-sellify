@@ -10,8 +10,14 @@ vi.mock('../../../adapters/marketplace-adapter-factory.js', () => ({
   createMarketplaceAdapter: vi.fn(),
 }))
 
+vi.mock('../../../lib/queue.js', () => ({
+  acquireLock: vi.fn(),
+  releaseLock: vi.fn(),
+}))
+
 import { upsertOrderFromMarket } from '../repository.js'
 import { createMarketplaceAdapter } from '../../../adapters/marketplace-adapter-factory.js'
+import { acquireLock, releaseLock } from '../../../lib/queue.js'
 import { collectMockOrders, collectMarketOrders } from '../service.js'
 
 const mockLog = {
@@ -31,18 +37,13 @@ const mockLog = {
 // ─────────────────────────────────────────────
 
 describe('collectMockOrders', () => {
-  const mockRedis = {
-    set: vi.fn(),
-    del: vi.fn(),
-  } as any
-
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRedis.set.mockResolvedValue('OK')
-    mockRedis.del.mockResolvedValue(1)
+    vi.mocked(acquireLock).mockResolvedValue(true)
+    vi.mocked(releaseLock).mockResolvedValue(undefined)
   })
 
-  it('Redis NX Lock을 획득하고 주문을 생성한다', async () => {
+  it('PG 분산 락을 획득하고 주문을 생성한다', async () => {
     vi.mocked(upsertOrderFromMarket).mockResolvedValue({
       order: {
         id: 'order-uuid-001',
@@ -63,27 +64,24 @@ describe('collectMockOrders', () => {
       isNew: true,
     })
 
-    const result = await collectMockOrders({} as any, mockRedis, {
+    const result = await collectMockOrders({} as any, {
       sellerId: 'seller-001',
       marketplace: 'naver',
       count: 1,
     })
 
-    expect(mockRedis.set).toHaveBeenCalledWith(
+    expect(acquireLock).toHaveBeenCalledWith(
+      expect.anything(),
       expect.stringContaining('order-lock:naver:MOCK-NAVER'),
-      '1',
-      'EX',
-      60,
-      'NX'
     )
     expect(result.collected).toBe(1)
     expect(result.skipped).toBe(0)
   })
 
-  it('Redis Lock 획득 실패 시 해당 주문을 건너뛴다', async () => {
-    mockRedis.set.mockResolvedValue(null) // Lock 획득 실패
+  it('락 획득 실패 시 해당 주문을 건너뛴다', async () => {
+    vi.mocked(acquireLock).mockResolvedValue(false)
 
-    const result = await collectMockOrders({} as any, mockRedis, {
+    const result = await collectMockOrders({} as any, {
       sellerId: 'seller-001',
       marketplace: 'naver',
       count: 3,
@@ -115,7 +113,7 @@ describe('collectMockOrders', () => {
       isNew: false,
     })
 
-    const result = await collectMockOrders({} as any, mockRedis, {
+    const result = await collectMockOrders({} as any, {
       sellerId: 'seller-001',
       marketplace: 'coupang',
       count: 2,
@@ -125,7 +123,7 @@ describe('collectMockOrders', () => {
     expect(result.collected).toBe(0)
   })
 
-  it('주문 처리 후 Redis Lock을 반드시 해제한다', async () => {
+  it('주문 처리 후 분산 락을 반드시 해제한다', async () => {
     vi.mocked(upsertOrderFromMarket).mockResolvedValue({
       order: {
         id: 'order-uuid-001',
@@ -146,14 +144,15 @@ describe('collectMockOrders', () => {
       isNew: true,
     })
 
-    await collectMockOrders({} as any, mockRedis, {
+    await collectMockOrders({} as any, {
       sellerId: 'seller-001',
       marketplace: 'naver',
       count: 1,
     })
 
-    expect(mockRedis.del).toHaveBeenCalledWith(
-      expect.stringContaining('order-lock:naver:MOCK-NAVER')
+    expect(releaseLock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('order-lock:naver:MOCK-NAVER'),
     )
   })
 
@@ -163,7 +162,7 @@ describe('collectMockOrders', () => {
       isNew: true,
     })
 
-    const result = await collectMockOrders({} as any, mockRedis, {
+    const result = await collectMockOrders({} as any, {
       sellerId: 'seller-001',
       marketplace: 'naver',
       count: 5,
@@ -179,14 +178,10 @@ describe('collectMockOrders', () => {
 // ─────────────────────────────────────────────
 
 describe('collectMarketOrders', () => {
-  const mockRedis = {
-    set: vi.fn().mockResolvedValue('OK'),
-    del: vi.fn().mockResolvedValue(1),
-  } as any
-
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRedis.set.mockResolvedValue('OK')
+    vi.mocked(acquireLock).mockResolvedValue(true)
+    vi.mocked(releaseLock).mockResolvedValue(undefined)
   })
 
   it('마켓 어댑터를 통해 주문을 수집하고 DB에 저장한다', async () => {
@@ -228,7 +223,6 @@ describe('collectMarketOrders', () => {
     const mockDb = { query: vi.fn().mockResolvedValue({ rows: [{ price: 12000 }] }) } as any
     const result = await collectMarketOrders(
       mockDb,
-      mockRedis,
       'seller-001',
       'naver',
       new Date('2026-03-01'),
@@ -285,7 +279,6 @@ describe('collectMarketOrders', () => {
     const mockDb = { query: vi.fn().mockResolvedValue({ rows: [] }) } as any
     await collectMarketOrders(
       mockDb,
-      mockRedis,
       'seller-001',
       'coupang',
       new Date(),

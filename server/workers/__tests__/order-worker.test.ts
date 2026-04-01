@@ -31,16 +31,17 @@ vi.mock('../../modules/orders/repository.js', () => ({
   upsertOrderFromMarket: vi.fn().mockResolvedValue({ isNew: true }),
 }))
 
+vi.mock('../../lib/queue.js', () => ({
+  acquireLock: vi.fn().mockResolvedValue(true),
+  releaseLock: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { collectMarketOrders } from '../../modules/orders/service.js'
 import { upsertOrderFromMarket } from '../../modules/orders/repository.js'
+import { acquireLock } from '../../lib/queue.js'
 
 const mockDb = {
   query: vi.fn().mockResolvedValue({ rows: [{ price: 12000 }] }),
-} as any
-
-const mockRedis = {
-  set: vi.fn().mockResolvedValue('OK'),
-  del: vi.fn().mockResolvedValue(1),
 } as any
 
 const mockLog = {
@@ -58,13 +59,13 @@ const mockLog = {
 beforeEach(() => {
   vi.clearAllMocks()
   mockDb.query.mockResolvedValue({ rows: [{ price: 12000 }] })
-  mockRedis.set.mockResolvedValue('OK')
+  vi.mocked(acquireLock).mockResolvedValue(true)
 })
 
 describe('collectMarketOrders', () => {
   it('마켓에서 주문을 수집하고 DB에 저장한다', async () => {
     const result = await collectMarketOrders(
-      mockDb, mockRedis, 'seller-1', 'naver', new Date('2026-03-31'), mockLog
+      mockDb, 'seller-1', 'naver', new Date('2026-03-31'), mockLog
     )
 
     expect(result.collected).toBe(1)
@@ -77,11 +78,11 @@ describe('collectMarketOrders', () => {
     }))
   })
 
-  it('Redis 락 획득 실패 시 스킵한다', async () => {
-    mockRedis.set.mockResolvedValue(null) // 락 획득 실패
+  it('분산 락 획득 실패 시 스킵한다', async () => {
+    vi.mocked(acquireLock).mockResolvedValue(false)
 
     const result = await collectMarketOrders(
-      mockDb, mockRedis, 'seller-1', 'naver', new Date('2026-03-31'), mockLog
+      mockDb, 'seller-1', 'naver', new Date('2026-03-31'), mockLog
     )
 
     expect(result.collected).toBe(0)
@@ -93,7 +94,7 @@ describe('collectMarketOrders', () => {
     vi.mocked(upsertOrderFromMarket).mockResolvedValueOnce({ isNew: false })
 
     const result = await collectMarketOrders(
-      mockDb, mockRedis, 'seller-1', 'naver', new Date('2026-03-31'), mockLog
+      mockDb, 'seller-1', 'naver', new Date('2026-03-31'), mockLog
     )
 
     expect(result.collected).toBe(0)
