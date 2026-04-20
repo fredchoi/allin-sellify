@@ -46,7 +46,7 @@ export default defineConfig({
     allowedHosts: ['www.sellify.kr', 'sellify.kr'],
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3002',
         changeOrigin: true,
       },
     },
