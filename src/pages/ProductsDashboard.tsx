@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   useCollectProducts,
   useWholesaleProducts,
@@ -7,6 +7,10 @@ import {
   type WholesaleProduct,
   type ProcessedProduct,
 } from '../hooks/useProductsApi'
+import { useToast } from '../components/ui/Toast'
+import { PipelineSteps } from '../components/dashboard/PipelineSteps'
+import { ProductEditModal } from '../components/dashboard/ProductEditModal'
+import { ListingPublishModal } from '../components/dashboard/ListingPublishModal'
 
 // ── 상태 뱃지 ────────────────────────────────────────────────────────────────
 
@@ -29,6 +33,22 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+// ── 마켓 뱃지 ────────────────────────────────────────────────────────────────
+
+function MarketBadge({ marketplace }: { marketplace: string }) {
+  const labels: Record<string, { label: string; className: string }> = {
+    naver: { label: '네이버 등록', className: 'bg-green-50 text-green-700 border-green-200' },
+    coupang: { label: '쿠팡 등록', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+    store: { label: '자사몰 등록', className: 'bg-purple-50 text-purple-700 border-purple-200' },
+  }
+  const m = labels[marketplace] ?? { label: `${marketplace} 등록`, className: 'bg-slate-50 text-slate-600 border-slate-200' }
+  return (
+    <span className={`inline-flex items-center text-xs px-1.5 py-0.5 rounded border font-medium ${m.className}`}>
+      {m.label}
+    </span>
+  )
+}
+
 // ── 가공 진행률 바 ────────────────────────────────────────────────────────────
 
 const STEPS = ['pending', 'title_done', 'image_done', 'option_done', 'completed']
@@ -41,6 +61,39 @@ function ProgressBar({ status }: { status: string }) {
       <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
     </div>
   )
+}
+
+// ── 파이프라인 단계 계산 ──────────────────────────────────────────────────────
+
+function computePipelineState(
+  wholesaleTotal: number,
+  processed: ProcessedProduct[]
+): { currentStep: 1 | 2 | 3 | 4; completedSteps: number[] } {
+  const completedSteps: number[] = []
+
+  if (wholesaleTotal > 0) completedSteps.push(1)
+
+  const hasProcessed = processed.some((p) => p.processing_status === 'completed')
+  const hasProcessing = processed.some((p) =>
+    ['pending', 'title_done', 'image_done'].includes(p.processing_status)
+  )
+  if (hasProcessed) completedSteps.push(2)
+
+  const hasListings = processed.some(
+    (p) => Array.isArray(p.listings) && p.listings.length > 0
+  )
+  if (hasListings) {
+    completedSteps.push(3)
+    completedSteps.push(4)
+  }
+
+  let currentStep: 1 | 2 | 3 | 4 = 1
+  if (hasProcessing) currentStep = 2
+  else if (hasProcessed && !hasListings) currentStep = 3
+  else if (hasListings) currentStep = 4
+  else if (wholesaleTotal > 0) currentStep = 2
+
+  return { currentStep, completedSteps }
 }
 
 // ── 도매 상품 카드 ────────────────────────────────────────────────────────────
@@ -93,46 +146,94 @@ function WholesaleCard({
 function ProcessedCard({
   product,
   onSelect,
+  onEdit,
+  onPublish,
   selected,
 }: {
   product: ProcessedProduct
   onSelect: (p: ProcessedProduct) => void
+  onEdit: (p: ProcessedProduct) => void
+  onPublish: (p: ProcessedProduct) => void
   selected: boolean
 }) {
   const images = Array.isArray(product.wholesale_images) ? product.wholesale_images : []
+  const isCompleted = product.processing_status === 'completed'
+  const isProcessing = ['pending', 'title_done', 'image_done'].includes(product.processing_status)
+  const hasListings = Array.isArray(product.listings) && product.listings.length > 0
   return (
-    <button
-      onClick={() => onSelect(product)}
-      className={`w-full text-left bg-white border rounded-xl p-4 flex gap-4 transition-all
+    <div
+      className={`w-full text-left bg-white border rounded-xl p-4 transition-all
         ${selected ? 'border-blue-500 shadow-md shadow-blue-50' : 'border-slate-200 hover:shadow-sm'}`}
     >
-      <div className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
-        {images[0] ? (
-          <img src={images[0] as string} alt={product.wholesale_name} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">없음</div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 truncate">
-          {product.title ?? product.wholesale_name ?? '–'}
-        </p>
-        {product.hooking_text && (
-          <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{product.hooking_text}</p>
-        )}
-        <div className="mt-2 space-y-1">
-          <ProgressBar status={product.processing_status} />
-          <div className="flex items-center justify-between">
-            <StatusBadge status={product.processing_status} />
-            {product.selling_price && (
-              <span className="text-xs font-medium text-slate-600">
-                {product.selling_price.toLocaleString()}원
-              </span>
-            )}
+      <button
+        onClick={() => onSelect(product)}
+        className="w-full flex gap-4"
+      >
+        <div className="w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
+          {images[0] ? (
+            <img src={images[0] as string} alt={product.wholesale_name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">없음</div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0 text-left">
+          <p className="text-sm font-semibold text-slate-800 truncate">
+            {product.title ?? product.wholesale_name ?? '–'}
+          </p>
+          {product.hooking_text && (
+            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{product.hooking_text}</p>
+          )}
+          <div className="mt-2 space-y-1">
+            <ProgressBar status={product.processing_status} />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <StatusBadge status={product.processing_status} />
+                {isProcessing && (
+                  <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded border font-medium bg-amber-50 text-amber-600 border-amber-200">
+                    로컬 처리
+                  </span>
+                )}
+                {hasListings && product.listings?.map((l) => (
+                  <MarketBadge key={l.id} marketplace={l.marketplace} />
+                ))}
+              </div>
+              {product.selling_price && (
+                <span className="text-xs font-medium text-slate-600">
+                  {product.selling_price.toLocaleString()}원
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </button>
+      </button>
+
+      {/* Action buttons for completed products */}
+      {isCompleted && (
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(product)
+            }}
+            className="flex-1 text-xs px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg font-medium
+                       hover:bg-slate-50 transition-colors"
+          >
+            편집
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onPublish(product)
+            }}
+            disabled={hasListings}
+            className="flex-1 text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg font-medium
+                       hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {hasListings ? '등록완료' : '등록'}
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -243,6 +344,21 @@ function DetailPanel({ product, onClose }: { product: ProcessedProduct; onClose:
             })}
           </div>
         </div>
+
+        {/* 마켓 등록 현황 */}
+        {Array.isArray(product.listings) && product.listings.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-slate-400 mb-2">마켓 등록 현황</p>
+            <div className="space-y-1.5">
+              {product.listings.map((l) => (
+                <div key={l.id} className="flex items-center justify-between text-xs bg-green-50 rounded-lg px-3 py-2">
+                  <MarketBadge marketplace={l.marketplace} />
+                  <span className="text-slate-500">{l.listing_price.toLocaleString()}원</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -258,6 +374,9 @@ export function ProductsDashboard() {
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [wholesalePage, setWholesalePage] = useState(1)
   const [processedPage, setProcessedPage] = useState(1)
+  const [editingProduct, setEditingProduct] = useState<ProcessedProduct | null>(null)
+  const [publishingProduct, setPublishingProduct] = useState<ProcessedProduct | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const { collect, loading: collectLoading } = useCollectProducts()
   const { products: wholesale, total: wholesaleTotal, loading: wholesaleLoading, load: loadWholesale } =
@@ -265,6 +384,13 @@ export function ProductsDashboard() {
   const { products: processed, total: processedTotal, loading: processedLoading, load: loadProcessed } =
     useProcessedProducts()
   const { process } = useProcessProduct()
+
+  let toast: { addToast: (t: { type: 'success' | 'error' | 'info' | 'warning'; title: string; message?: string }) => void }
+  try {
+    toast = useToast()
+  } catch {
+    toast = { addToast: () => {} }
+  }
 
   useEffect(() => {
     loadWholesale({ page: wholesalePage })
@@ -275,6 +401,28 @@ export function ProductsDashboard() {
       loadProcessed({ page: processedPage })
     }
   }, [tab, loadProcessed, processedPage])
+
+  // Auto-polling: refresh every 5s when any product is processing
+  useEffect(() => {
+    const hasProcessing = processed.some((p) =>
+      ['pending', 'title_done', 'image_done'].includes(p.processing_status)
+    )
+
+    if (hasProcessing && tab === 'processed') {
+      pollRef.current = setInterval(() => {
+        loadProcessed({ page: processedPage })
+      }, 5000)
+    }
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+    }
+  }, [processed, tab, loadProcessed, processedPage])
+
+  const { currentStep, completedSteps } = computePipelineState(wholesaleTotal, processed)
 
   async function handleCollect() {
     try {
@@ -297,6 +445,17 @@ export function ProductsDashboard() {
     } finally {
       setProcessingId(null)
     }
+  }
+
+  function handleEditSave(_updated: ProcessedProduct) {
+    setEditingProduct(null)
+    loadProcessed({ page: processedPage })
+    toast.addToast({ type: 'success', title: '상품 수정 완료', message: '가공 상품이 업데이트되었습니다' })
+  }
+
+  function handlePublished() {
+    loadProcessed({ page: processedPage })
+    toast.addToast({ type: 'success', title: '마켓 등록 완료', message: '상품이 마켓에 등록되었습니다' })
   }
 
   const PAGE_SIZE = 10
@@ -326,6 +485,11 @@ export function ProductsDashboard() {
       </header>
 
       <main className="flex-1 max-w-screen-xl mx-auto w-full px-4 sm:px-6 py-6">
+        {/* Pipeline Steps */}
+        <div className="mb-6">
+          <PipelineSteps currentStep={currentStep} completedSteps={completedSteps} />
+        </div>
+
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start">
           {/* 왼쪽 */}
           <div className="flex flex-col gap-5">
@@ -433,6 +597,8 @@ export function ProductsDashboard() {
                       key={p.id}
                       product={p}
                       onSelect={setSelectedProduct}
+                      onEdit={setEditingProduct}
+                      onPublish={setPublishingProduct}
                       selected={selectedProduct?.id === p.id}
                     />
                   ))
@@ -481,6 +647,22 @@ export function ProductsDashboard() {
           </div>
         </div>
       </main>
+
+      {/* Modals */}
+      {editingProduct && (
+        <ProductEditModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSave={handleEditSave}
+        />
+      )}
+      {publishingProduct && (
+        <ListingPublishModal
+          product={publishingProduct}
+          onClose={() => setPublishingProduct(null)}
+          onPublished={handlePublished}
+        />
+      )}
     </div>
   )
 }

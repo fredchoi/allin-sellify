@@ -1,6 +1,12 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useContext } from 'react'
+import { AuthContext } from '../contexts/AuthContext'
 
 const DEV_SELLER_ID = '00000000-0000-0000-0000-000000000001'
+
+function useSellerId(): string {
+  const ctx = useContext(AuthContext)
+  return ctx?.seller?.id ?? DEV_SELLER_ID
+}
 
 export interface WholesaleProduct {
   id: string
@@ -61,6 +67,7 @@ export interface CollectResult {
 export function useCollectProducts() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const sellerId = useSellerId()
 
   const collect = useCallback(
     async (opts: {
@@ -79,7 +86,7 @@ export function useCollectProducts() {
           body: JSON.stringify({
             ...opts,
             source: opts.source ?? 'mock',
-            sellerId: DEV_SELLER_ID,
+            sellerId,
           }),
         })
         if (!res.ok) {
@@ -95,7 +102,7 @@ export function useCollectProducts() {
         setLoading(false)
       }
     },
-    []
+    [sellerId]
   )
 
   return { collect, loading, error }
@@ -143,6 +150,7 @@ export function useWholesaleProducts() {
 export function useProcessProduct() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const sellerId = useSellerId()
 
   const process = useCallback(
     async (wholesaleProductId: string, sellingPrice?: number): Promise<string> => {
@@ -154,7 +162,7 @@ export function useProcessProduct() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             wholesaleProductId,
-            sellerId: DEV_SELLER_ID,
+            sellerId,
             sellingPrice,
           }),
         })
@@ -172,7 +180,7 @@ export function useProcessProduct() {
         setLoading(false)
       }
     },
-    []
+    [sellerId]
   )
 
   return { process, loading, error }
@@ -185,6 +193,7 @@ export function useProcessedProducts() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const sellerId = useSellerId()
 
   const load = useCallback(
     async (opts: { page?: number; pageSize?: number; processingStatus?: string } = {}) => {
@@ -192,7 +201,7 @@ export function useProcessedProducts() {
       setError(null)
       try {
         const params = new URLSearchParams({
-          sellerId: DEV_SELLER_ID,
+          sellerId,
           page: String(opts.page ?? 1),
           pageSize: String(opts.pageSize ?? 20),
         })
@@ -210,7 +219,7 @@ export function useProcessedProducts() {
         setLoading(false)
       }
     },
-    []
+    [sellerId]
   )
 
   return { products, total, loading, error, load }
@@ -254,4 +263,50 @@ export function useProcessedProductDetail() {
   )
 
   return { product, loading, error, load, update }
+}
+
+// ── 마켓 등록 ─────────────────────────────────────────────────────────────
+
+export interface CreateListingResult {
+  id: string
+  marketplace: string
+  listingStatus: string
+  marketUrl: string | null
+}
+
+export function useCreateListing() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const create = useCallback(
+    async (input: {
+      processedProductId: string
+      marketplace: 'naver' | 'coupang' | 'store'
+      listingPrice: number
+    }): Promise<CreateListingResult | null> => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/v1/products/listings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.message ?? `등록 실패 (${res.status})`)
+        }
+        return await res.json()
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '알 수 없는 오류'
+        setError(msg)
+        return null
+      } finally {
+        setLoading(false)
+      }
+    },
+    []
+  )
+
+  return { create, loading, error }
 }
