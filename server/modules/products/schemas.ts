@@ -14,12 +14,12 @@ export const CollectProductsSchema = z.object({
 
 export type CollectProductsInput = z.infer<typeof CollectProductsSchema>
 
-// ── 도매 상품 목록 조회 ──────────────────────────
+// ── 도매 상품 목록 조회 (GET 쿼리 파라미터는 string → coerce) ──
 export const ListWholesaleProductsSchema = z.object({
   source: z.enum(['domeggook', 'mock', 'all']).default('all'),
   supplyStatus: z.enum(['available', 'soldout', 'discontinued', 'all']).default('all'),
-  page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(100).default(20),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
 // ── 가공 상품 목록 조회 ──────────────────────────
@@ -28,8 +28,8 @@ export const ListProcessedProductsSchema = z.object({
   processingStatus: z
     .enum(['pending', 'title_done', 'image_done', 'option_done', 'completed', 'failed', 'all'])
     .default('all'),
-  page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(100).default(20),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
 // ── AI 가공 요청 ─────────────────────────────────

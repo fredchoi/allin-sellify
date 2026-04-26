@@ -61,8 +61,9 @@ export async function collectProducts(
         }
       }
 
-      // DB 저장/업데이트
-      const id = await repo.upsertWholesaleProduct(db, { ...product, source: input.source })
+      // DB 저장/업데이트 (mock 소스는 domeggook으로 저장, DB CHECK 제약)
+      const dbSource = effectiveSource === 'mock' ? 'domeggook' : effectiveSource
+      const id = await repo.upsertWholesaleProduct(db, { ...product, source: dbSource })
       await repo.updateWholesaleFingerprint(db, id, textFp, imageHash)
 
       collected++
